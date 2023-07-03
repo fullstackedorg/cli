@@ -1,0 +1,8 @@
+*.js.map
+*.ts
+*.tsx
+!*.d.ts
+nginx/getAvailablePorts.d.ts
+dockerInstallScripts.d.ts
+serverSSH.d.ts
+*.tgz

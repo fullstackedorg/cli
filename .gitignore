@@ -1,0 +1,15 @@
+.DS_Store
+.idea
+node_modules
+dist
+**/*.js
+**/*.js.map
+**/*.mjs
+**/*.mjs.map
+**/*.tjs
+**/*.tjs.map
+**/*.d.ts
+version.ts
+.fullstacked
+*.tgz
+test
