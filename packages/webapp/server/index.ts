@@ -2,7 +2,8 @@ import fs from "fs";
 import http, {IncomingMessage, RequestListener, ServerResponse} from "http";
 import mime from "mime";
 import HTML from "./HTML";
-import {resolve} from "path";
+import {dirname, resolve} from "path";
+import {fileURLToPath} from "url";
 
 export type Listener = {
     name?: string,
@@ -27,7 +28,7 @@ export default class {
     */
     clientDir = process.env.CLIENT_DIR
         ? resolve(process.cwd(), process.env.CLIENT_DIR)
-        : resolve(process.cwd(), "client");
+        : resolve(dirname(fileURLToPath(import.meta.url)), "..", "client");
     logger: {
         in(req, res): void,
         out(req, res): void
