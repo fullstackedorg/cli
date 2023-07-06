@@ -1,4 +1,4 @@
-import CLIParser from "fullstacked/utils/CLIParser";
+import CLIParser from "@fullstacked/cli/utils/CLIParser";
 import {resolve} from "path";
 import fs from "fs";
 import {execSync} from "child_process";

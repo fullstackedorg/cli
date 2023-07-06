@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import fs from "fs";
 import {execSync} from "child_process";
-import randStr from "fullstacked/utils/randStr";
+import randStr from "@fullstacked/cli/utils/randStr";
 import {resolve} from "path";
 
 export default class Info {

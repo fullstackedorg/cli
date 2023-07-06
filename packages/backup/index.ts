@@ -1,13 +1,13 @@
-import CommandInterface from "fullstacked/CommandInterface";
-import CLIParser from "fullstacked/utils/CLIParser";
+import CommandInterface from "@fullstacked/cli/CommandInterface";
+import CLIParser from "@fullstacked/cli/utils/CLIParser";
 import fs from "fs";
 import {resolve} from "path";
 import type Deploy from "../deploy";
-import {maybePullDockerImage} from "fullstacked/utils/maybePullDockerImage";
+import {maybePullDockerImage} from "@fullstacked/cli/utils/maybePullDockerImage";
 import yaml from "js-yaml";
-import Docker from "fullstacked/utils/docker";
-import randStr from "fullstacked/utils/randStr";
-import Info from "fullstacked/info";
+import Docker from "@fullstacked/cli/utils/docker";
+import randStr from "@fullstacked/cli/utils/randStr";
+import Info from "@fullstacked/cli/info";
 
 // source: https://stackoverflow.com/a/43001581
 type Writeable<T> = { -readonly [P in keyof T]: T[P] };

@@ -1,10 +1,10 @@
 import Server from "@fullstacked/webapp/server";
 import createListener from "@fullstacked/webapp/rpc/createListener";
-import Commands from "fullstacked/Commands";
+import Commands from "@fullstacked/cli/Commands";
 import fs from "fs";
 import deploy from "./deploy";
 import websocket from "./websocket";
-import getModuleDir from "../../../utils/getModuleDir";
+import getModuleDir from "@fullstacked/cli/utils/getModuleDir";
 import {resolve} from "path";
 import {fileURLToPath} from "url";
 

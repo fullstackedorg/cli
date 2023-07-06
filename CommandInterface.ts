@@ -1,5 +1,5 @@
 import {clearLine, cursorTo} from "readline";
-import Info from "fullstacked/info";
+import Info from "@fullstacked/cli/info";
 
 export default abstract class {
     write: (str) => void = process.stdout.write.bind(process.stdout);

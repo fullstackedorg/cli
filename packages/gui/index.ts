@@ -1,6 +1,6 @@
-import CommandInterface from "fullstacked/CommandInterface";
+import CommandInterface from "@fullstacked/cli/CommandInterface";
 import {fileURLToPath} from "url";
-import getNextAvailablePort from "fullstacked/utils/getNextAvailablePort";
+import getNextAvailablePort from "@fullstacked/cli/utils/getNextAvailablePort";
 
 export default class GUI extends CommandInterface {
     async run() {

@@ -2,10 +2,10 @@ import { resolve } from "path";
 import esbuild, {Format, Platform} from "esbuild";
 import fs from "fs";
 import yaml from "js-yaml";
-import CommandInterface from "fullstacked/CommandInterface";
+import CommandInterface from "@fullstacked/cli/CommandInterface";
 import glob from "fast-glob";
-import CLIParser from "fullstacked/utils/CLIParser";
-import Info from "fullstacked/info";
+import CLIParser from "@fullstacked/cli/utils/CLIParser";
+import Info from "@fullstacked/cli/info";
 
 // Polyfill for stackblitz
 if(!global.structuredClone) {

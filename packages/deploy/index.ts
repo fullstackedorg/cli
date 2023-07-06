@@ -1,20 +1,20 @@
-import CommandInterface from "fullstacked/CommandInterface";
+import CommandInterface from "@fullstacked/cli/CommandInterface";
 import path, {resolve} from "path";
-import CLIParser from "fullstacked/utils/CLIParser";
+import CLIParser from "@fullstacked/cli/utils/CLIParser";
 import prompts from "prompts";
 import fs from "fs";
 import ServerSSH from "./serverSSH";
 import SFTP from "ssh2-sftp-client";
 import {Client} from "ssh2";
 import yaml from "js-yaml";
-import Info from "fullstacked/info";
+import Info from "@fullstacked/cli/info";
 import glob from "fast-glob";
 import progress from "progress-stream";
 import DockerInstallScripts from "./dockerInstallScripts";
 import {Writable} from "stream";
-import randStr from "fullstacked/utils/randStr";
+import randStr from "@fullstacked/cli/utils/randStr";
 import dns from "dns";
-import {decryptDataWithPassword, encryptDataWithPassword} from "fullstacked/utils/encrypt";
+import {decryptDataWithPassword, encryptDataWithPassword} from "@fullstacked/cli/utils/encrypt";
 import {fileURLToPath} from "url";
 import {execSync} from "child_process";
 

@@ -1,10 +1,10 @@
-import Docker from "fullstacked/utils/docker";
-import getNextAvailablePort from "fullstacked/utils/getNextAvailablePort";
+import Docker from "@fullstacked/cli/utils/docker";
+import getNextAvailablePort from "@fullstacked/cli/utils/getNextAvailablePort";
 import {execSync} from "child_process";
 import {fileURLToPath} from "url";
 import {dirname} from "path";
 import Dockerode from "dockerode";
-import randStr from "fullstacked/utils/randStr";
+import randStr from "@fullstacked/cli/utils/randStr";
 
 export default class ServerSSH {
     container: {

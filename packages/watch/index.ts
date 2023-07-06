@@ -1,12 +1,12 @@
-import CommandInterface from "fullstacked/CommandInterface";
-import CLIParser from "fullstacked/utils/CLIParser";
+import CommandInterface from "@fullstacked/cli/CommandInterface";
+import CLIParser from "@fullstacked/cli/utils/CLIParser";
 import glob from "fast-glob";
 import fs from "fs";
 import watcher from "./watcher";
 import yaml from "js-yaml";
 import {dirname, resolve} from "path";
-import getNextAvailablePort from "fullstacked/utils/getNextAvailablePort";
-import Info from "fullstacked/info";
+import getNextAvailablePort from "@fullstacked/cli/utils/getNextAvailablePort";
+import Info from "@fullstacked/cli/info";
 
 
 export default class Watch extends CommandInterface {

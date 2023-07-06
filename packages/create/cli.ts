@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import CLIParser from "fullstacked/utils/CLIParser";
+import CLIParser from "@fullstacked/cli/utils/CLIParser";
 import Table from "cli-table3";
 import {argsSpecs} from "./args";
 

@@ -7,7 +7,7 @@ import {
     mergeImportsDefinitions, reconstructDynamicImport, replaceLines,
     tokenizeImports
 } from "./fileParser";
-import randStr from "fullstacked/utils/randStr";
+import randStr from "@fullstacked/cli/utils/randStr";
 import {moduleExtensions, possibleJSExtensions} from "./utils";
 
 type BuilderOptions = {

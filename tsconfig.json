@@ -11,7 +11,7 @@
         "emitDeclarationOnly": true,
         "downlevelIteration": true,
         "paths": {
-            "fullstacked/*": ["./*"],
+            "@fullstacked/cli/*": ["./*"],
             "@fullstacked/deploy/*": ["./packages/deploy/*"]
         }
     },

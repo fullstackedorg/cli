@@ -1,13 +1,13 @@
-import CommandInterface from "fullstacked/CommandInterface";
+import CommandInterface from "@fullstacked/cli/CommandInterface";
 import {dirname, resolve} from "path";
-import CLIParser from "fullstacked/utils/CLIParser";
-import Docker from "fullstacked/utils/docker";
+import CLIParser from "@fullstacked/cli/utils/CLIParser";
+import Docker from "@fullstacked/cli/utils/docker";
 import DockerCompose from "dockerode-compose";
-import Info from "fullstacked/info";
+import Info from "@fullstacked/cli/info";
 import Dockerode from "dockerode";
-import getNextAvailablePort from "fullstacked/utils/getNextAvailablePort";
-import {maybePullDockerImage} from "fullstacked/utils/maybePullDockerImage";
-import sleep from "fullstacked/utils/sleep";
+import getNextAvailablePort from "@fullstacked/cli/utils/getNextAvailablePort";
+import {maybePullDockerImage} from "@fullstacked/cli/utils/maybePullDockerImage";
+import sleep from "@fullstacked/cli/utils/sleep";
 import {execSync} from "child_process";
 
 export default class Run extends CommandInterface {

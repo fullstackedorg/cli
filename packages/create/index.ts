@@ -1,5 +1,5 @@
-import CommandInterface from "fullstacked/CommandInterface";
-import CLIParser from "fullstacked/utils/CLIParser";
+import CommandInterface from "@fullstacked/cli/CommandInterface";
+import CLIParser from "@fullstacked/cli/utils/CLIParser";
 import {argsSpecs} from "./args";
 import create from "./create";
 

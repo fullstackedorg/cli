@@ -7,6 +7,6 @@ const packageJSONs = glob.sync("packages/*/package.json");
 
 packageJSONs.forEach(packageJSONFile => {
     const packageJSON = JSON.parse(readFileSync(packageJSONFile).toString());
-    packageJSON.dependencies.fullstacked = `^${currentFullStackedVersion}`;
+    packageJSON.dependencies["@fullstacked/cli"] = `^${currentFullStackedVersion}`;
     writeFileSync(packageJSONFile, JSON.stringify(packageJSON, null, 2));
 })
