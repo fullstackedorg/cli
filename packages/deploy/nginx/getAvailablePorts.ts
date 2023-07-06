@@ -1,4 +1,4 @@
-import getNextAvailablePort from "fullstacked/utils/getNextAvailablePort";
+import getNextAvailablePort from "@fullstacked/cli/utils/getNextAvailablePort";
 import {parseArgs} from "node:util";
 
 let {values: { count }} = parseArgs({

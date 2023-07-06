@@ -1,5 +1,5 @@
 import {clearLine, cursorTo} from "readline";
-import Docker from "fullstacked/utils/docker";
+import Docker from "@fullstacked/cli/utils/docker";
 
 export async function maybePullDockerImage(image){
     const dockerClient = await Docker.getClient();

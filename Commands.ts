@@ -6,5 +6,6 @@ export default  [
     "deploy",
     "backup",
     "gui",
-    "webapp"
+    "webapp",
+    "workspace"
 ]

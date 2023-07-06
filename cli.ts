@@ -99,29 +99,33 @@ if(!commandLocation)
 
 const CommandModule = await import(commandLocation.toString() + "/index.js");
 
-const command: CommandInterface = new CommandModule.default();
+if(CommandModule.default){
+    const command: CommandInterface = new CommandModule.default();
 
-if(help){
-    const argsSpecs = CommandModule.default.commandLineArguments;
-    const args = Object.keys(argsSpecs);
-    const outputTable = new Table({
-        head: ["Argument", "Default", "Description"],
-        style: {
-            head: ["blue"]
-        }
-    });
-    args.forEach(argName => {
-        const argSpec = argsSpecs[argName];
-        outputTable.push([
-            "--" + argName + (argSpec.short ? ", -" + argSpec.short : ""),
-            argSpec.defaultDescription ?? "",
-            argSpec.description
-        ])
-    })
-    const packageInfo = await getCommandPackageInfos(commandName);
-    console.log(`\n  ${packageInfo.description}\n`)
-    console.log(`  Usage: npx fullstacked ${commandName} [ARGS...]\n`)
-    console.log(outputTable.toString());
-}else{
-    command.runCLI();
+    if(help){
+        const argsSpecs = CommandModule.default.commandLineArguments;
+        const args = Object.keys(argsSpecs);
+        const outputTable = new Table({
+            head: ["Argument", "Default", "Description"],
+            style: {
+                head: ["blue"]
+            }
+        });
+        args.forEach(argName => {
+            const argSpec = argsSpecs[argName];
+            outputTable.push([
+                "--" + argName + (argSpec.short ? ", -" + argSpec.short : ""),
+                argSpec.defaultDescription ?? "",
+                argSpec.description
+            ])
+        })
+        const packageInfo = await getCommandPackageInfos(commandName);
+        console.log(`\n  ${packageInfo.description}\n`)
+        console.log(`  Usage: npx fullstacked ${commandName} [ARGS...]\n`)
+        console.log(outputTable.toString());
+    }else{
+        command.runCLI();
+    }
 }
+
+
