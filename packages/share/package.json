@@ -1,0 +1,21 @@
+{
+  "name": "@fullstacked/share",
+  "version": "0.10.0",
+  "description": "Share a current port on your localhost to the public internet",
+  "main": "index.js",
+  "author": "cplepage",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@fullstacked/cli": "^0.10.3",
+    "@types/http-proxy": "^1.17.11",
+    "http-proxy": "^1.18.1",
+    "ws": "^8.12.1"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.4"
+  },
+  "exports": {
+    ".": "./index.js"
+  }
+}

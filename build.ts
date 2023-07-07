@@ -30,6 +30,7 @@ const toBuild = [
     "./packages/create/index.ts",
     "./packages/create/cli.ts",
     "./packages/create/create.ts",
+    "./packages/share/index.ts",
     "./packages/webapp/server/index.ts",
     "./packages/webapp/server/HTML.ts",
     "./packages/webapp/client/react/useAPI.ts",
