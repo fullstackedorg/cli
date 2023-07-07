@@ -6,27 +6,37 @@ export default class Share extends CommandInterface {
     static commandLineArguments = {
         port: {
             type: "number",
-            default: 8001
+            default: 8000
         },
         server: {
             type: "string",
+            default: "https://share.fullstacked.cloud"
         }
     } as const;
     config = CLIParser.getCommandLineArgumentsValues(Share.commandLineArguments);
 
     run(): void {
-        const ws = new WebSocket("ws://localhost:8000");
+        const serverURL = new URL(this.config.server);
+        const ws = new WebSocket(`${serverURL.protocol === "https:" ? "wss" : "ws"}://${serverURL.host}`);
+        const proxiedWS = new Map<string, WebSocket>();
         ws.on("message",  async (message) => {
             const data = JSON.parse(message.toString());
             if(data.hash){
-                console.log(`${data.hash}.localhost:8000`);
+                console.log(`${serverURL.protocol}//${data.hash}.${serverURL.host}`);
                 return;
             }
 
             if(data.ws){
-                const proxyWS = new WebSocket(`ws://localhost:${this.config.port}${data.url}`, {
+                if(data.close){
+                    proxiedWS.get(data.wsId)?.close();
+                    proxiedWS.delete(data.wsId);
+                    return;
+                }
+
+                const proxyWS = new WebSocket(`ws://0.0.0.0:${this.config.port}${data.url}`, {
                     headers: data.headers
                 });
+                proxiedWS.set(data.wsId, proxyWS);
                 proxyWS.on("message", message => {
                     ws.send(JSON.stringify({
                         ws: true,
@@ -37,7 +47,9 @@ export default class Share extends CommandInterface {
                 return;
             }
 
-            const response = await fetch(`http://localhost:${this.config.port}${data.url}`, {
+            delete data.headers.connection;
+
+            const response = await fetch(`http://0.0.0.0:${this.config.port}${data.url}`, {
                 method: data.method,
                 headers: data.headers
             });
@@ -50,6 +62,10 @@ export default class Share extends CommandInterface {
                 headers,
                 body
             }}));
+        });
+        ws.on("close", () => {
+            console.log("Lost connection to share server");
+            process.exit();
         })
     }
 
