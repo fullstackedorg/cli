@@ -1,5 +1,5 @@
 import {randomBytes} from "crypto";
 
-export default function (){
-    return randomBytes(6).toString('hex');
+export default function (length: number = 6){
+    return randomBytes(length).toString('hex');
 }
