@@ -10,9 +10,9 @@
 .github
 .gitignore
 
-build.js
-clean.js
-test.js
+build.*
+clean.*
+test.*
 
 packages
 docs
@@ -20,9 +20,13 @@ test
 
 tsconfig.json
 
+cli.d.ts
+info.d.ts
+
+CommandInterface.d.ts
 Commands.d.ts
 
-prepare.js
-pack.js
+prepare.*
+pack.*
 
 

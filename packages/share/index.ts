@@ -87,21 +87,50 @@ export default class Share extends CommandInterface {
                 return;
             }else if(data.require === "login"){
                 let userData = this.getCacheFileData().data[this.config.server];
-                if(!userData) {
-                    console.log(`Please login at ${data.loginURL}`);
-                    userData = await this.waitTwoMinutesForAuth(data.validateURL);
+
+                const validateAuth = async () => {
+                    try{
+                        const response = await fetch(data.validateURL, {
+                            method: "POST",
+                            body: userData
+                        });
+                        if(response.status >= 400)
+                            userData = undefined;
+                        else
+                            userData = await response.text()
+                    }catch (e) {
+                        userData = undefined;
+                    }
                 }
 
-                if(!userData)
-                    console.log("Failed to authenticate");
-                else
-                    this.saveInCache({[this.config.server]: userData});
+                // try directly if userData exists for server
+                if(userData){
+                    await validateAuth();
+                }
 
+                // if no userData after first validation
+                // try login
+                if(!userData) {
+                    this.saveInCache({[this.config.server]: undefined});
+                    console.log(`Please login at ${data.loginURL}`);
+                    userData = await this.waitTwoMinutesForAuth(data.validateURL);
+                    await validateAuth();
+                }
+
+                // save whatever we came up with
+                this.saveInCache({[this.config.server]: userData});
+
+                // notify that if never seemed worked
+                if(!userData){
+                    console.log("Failed to authenticate");
+                }
+
+                // return req to share-server
                 ws.send(JSON.stringify({
                     reqId: data.reqId,
                     data: userData
                 }));
-                return
+                return;
             }
 
             if(data.hash){
