@@ -120,10 +120,9 @@ export default class Share extends CommandInterface {
                 // save whatever we came up with
                 this.saveInCache({[this.config.server]: userData});
 
-                // notify that if never seemed worked
-                if(!userData){
+                // notify that it never seemed work
+                if(!userData)
                     console.log("Failed to authenticate");
-                }
 
                 // return req to share-server
                 ws.send(JSON.stringify({
