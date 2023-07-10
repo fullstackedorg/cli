@@ -7,6 +7,8 @@ export default `
     <style>
         *{
             box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         html, body{
             background-color: #1e293c;
@@ -14,16 +16,17 @@ export default `
             width: 100%;
             margin: 0;
             padding: 0;
+            font-family: sans-serif;
         }
         body {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            color: white;
         }
         img {
             height: 70px;
-            margin: 20px;
         }
         form {
             display: flex;
@@ -61,6 +64,9 @@ export default `
     </style>
 </head>
 <body>
+    <img src="https://files.cplepage.com/fullstacked/app-icon.png" />
+    <h1>FullStacked Share</h1>
+    <p>Enter Password</p>
     <form>
         <input type="password" />
         <button>
@@ -77,7 +83,7 @@ export default `
             const response = await (await fetch("/", {
                 method: "POST",
                 body: JSON.stringify({
-                    pass: document.querySelector("input").value
+                    password: document.querySelector("input").value
                 })
             })).text();
 

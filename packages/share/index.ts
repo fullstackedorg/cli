@@ -6,8 +6,10 @@ import cookie from "cookie";
 import passwordPage from "./password";
 import fs from "fs";
 import os from "os";
+import {randomUUID} from "crypto";
 
 export default class Share extends CommandInterface {
+    static TextDecoder = new TextDecoder();
     static commandLineArguments = {
         port: {
             type: "number",
@@ -22,6 +24,8 @@ export default class Share extends CommandInterface {
         }
     } as const;
     config = CLIParser.getCommandLineArgumentsValues(Share.commandLineArguments);
+
+    accessTokens = new Set<string>();
 
     waitTwoMinutesForAuth(validateURL: string){
 
@@ -132,9 +136,30 @@ export default class Share extends CommandInterface {
 
             if(this.config.password){
                 const cookies = cookie.parse(data.headers.cookie ?? "");
-                if(cookies.fullstackedSharing !== this.config.password){
-                    if(data.method === "POST"){
+                if(!this.accessTokens.has(cookies.fullstackedShareAccessToken)){
 
+                    if(data.method === "POST"){
+                        let parsedBody: any = {};
+                        try{
+                            parsedBody = JSON.parse(data.body)
+                        }catch (e) {}
+
+                        if(parsedBody.password === this.config.password){
+                            const accessToken = randomUUID();
+                            this.accessTokens.add(accessToken);
+                            ws.send(JSON.stringify({
+                                reqId: data.reqId,
+                                data: {
+                                    status: 200,
+                                    headers: [
+                                        ["content-type", "text/html"],
+                                        ["Set-Cookie", cookie.serialize("fullstackedShareAccessToken", accessToken)]
+                                    ],
+                                    body: "Bonjour"
+                                }
+                            }));
+                            return;
+                        }
                     }
 
                     ws.send(JSON.stringify({
@@ -155,7 +180,10 @@ export default class Share extends CommandInterface {
                 method: data.method,
                 headers: data.headers
             });
-            const body = await response.text();
+            const responseData = await response.arrayBuffer();
+            const uint8Array = new Uint8Array(responseData);
+            const body = uint8Array.reduce((acc, i) =>
+                acc + String.fromCharCode.apply(null, [i]), '');
             const headers = [];
             response.headers.forEach((value, key) => headers.push([key, value]));
             ws.send(JSON.stringify({reqId: data.reqId, data: {
