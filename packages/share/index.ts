@@ -8,8 +8,23 @@ import fs from "fs";
 import os from "os";
 import {randomUUID} from "crypto";
 
+type ShareEventCallbackData = {
+    type: "url",
+    url: string
+} | {
+    type: "login",
+    url: string
+} | {
+    type: "password",
+    callback: (password: string) => void
+} | {
+    type: "end"
+} | {
+    type: "error",
+    message: string
+};
+
 export default class Share extends CommandInterface {
-    static TextDecoder = new TextDecoder();
     static commandLineArguments = {
         port: {
             type: "number",
@@ -21,11 +36,15 @@ export default class Share extends CommandInterface {
         },
         password: {
             type: "string",
+        },
+        userData: {
+            type: "string"
         }
     } as const;
     config = CLIParser.getCommandLineArgumentsValues(Share.commandLineArguments);
 
     accessTokens = new Set<string>();
+    listeners: Set<(data: ShareEventCallbackData) => any> = new Set();
 
     waitTwoMinutesForAuth(validateURL: string){
 
@@ -48,7 +67,7 @@ export default class Share extends CommandInterface {
         });
     }
 
-    getCacheFileData(){
+    getCacheData(){
         const cacheDir = os.homedir() + "/.cache";
         if(!cacheDir)
             fs.mkdirSync(cacheDir);
@@ -60,13 +79,14 @@ export default class Share extends CommandInterface {
         }
     }
 
-    saveInCache(newData: object){
-        let {filePath, data} = this.getCacheFileData();
+    saveCacheData(newData: object){
+        let {filePath, data} = this.getCacheData();
         fs.writeFileSync(filePath, JSON.stringify({
             ...data,
             ...newData
         }));
     }
+
 
     run(): void {
         const serverURL = new URL(this.config.server);
@@ -75,18 +95,18 @@ export default class Share extends CommandInterface {
         ws.on("message",  async (message) => {
             const data = JSON.parse(message.toString());
             if(data.require === "password"){
-                const {password} = await prompts({
-                    type: "password",
-                    name: "password",
-                    message: "FullStacked Share Server requires password"
-                })
-                ws.send(JSON.stringify({
-                    reqId: data.reqId,
-                    data: password
-                }));
+                this.listeners.forEach(listener => {
+                    listener({
+                        type: "password",
+                        callback: (password) => ws.send(JSON.stringify({
+                            reqId: data.reqId,
+                            data: password
+                        }))
+                    })
+                });
                 return;
             }else if(data.require === "login"){
-                let userData = this.getCacheFileData().data[this.config.server];
+                let userData = this.getCacheData().data[this.config.server];
 
                 const validateAuth = async () => {
                     try{
@@ -97,7 +117,7 @@ export default class Share extends CommandInterface {
                         if(response.status >= 400)
                             userData = undefined;
                         else
-                            userData = await response.text()
+                            userData = await response.text();
                     }catch (e) {
                         userData = undefined;
                     }
@@ -111,18 +131,29 @@ export default class Share extends CommandInterface {
                 // if no userData after first validation
                 // try login
                 if(!userData) {
-                    this.saveInCache({[this.config.server]: undefined});
-                    console.log(`Please login at ${data.loginURL}`);
+                    this.saveCacheData({[this.config.server]: undefined});
+                    this.listeners.forEach(listener => {
+                        listener({
+                            type: "login",
+                            url: data.loginURL
+                        })
+                    })
                     userData = await this.waitTwoMinutesForAuth(data.validateURL);
                     await validateAuth();
                 }
 
                 // save whatever we came up with
-                this.saveInCache({[this.config.server]: userData});
+                this.saveCacheData({[this.config.server]: userData});
 
                 // notify that it never seemed work
-                if(!userData)
-                    console.log("Failed to authenticate");
+                if(!userData) {
+                    this.listeners.forEach(listener => {
+                        listener({
+                            type: "error",
+                            message: "Failed to authenticate"
+                        })
+                    })
+                }
 
                 // return req to share-server
                 ws.send(JSON.stringify({
@@ -133,7 +164,12 @@ export default class Share extends CommandInterface {
             }
 
             if(data.hash){
-                console.log(`${serverURL.protocol}//${data.hash}.${serverURL.host}`);
+                this.listeners.forEach(listener => {
+                    listener({
+                        type: "url",
+                        url: `${serverURL.protocol}//${data.hash}.${serverURL.host}`
+                    })
+                })
                 return;
             }
 
@@ -221,12 +257,39 @@ export default class Share extends CommandInterface {
             }}));
         });
         ws.on("close", () => {
-            console.log("Lost connection to share server");
+            this.listeners.forEach(listener => {
+                listener({type: "end"})
+            })
             process.exit();
         })
     }
 
     runCLI(): void {
+        this.listeners.add(async data => {
+            switch (data.type){
+                case "url":
+                    console.log(data.url);
+                    return;
+                case "login":
+                    console.log(`Please login at ${data.url}`);
+                    return;
+                case "password":
+                    const {password} = await prompts({
+                        type: "password",
+                        name: "password",
+                        message: "FullStacked Share Server requires password"
+                    })
+                    data.callback(password);
+                    return;
+                case "error":
+                    console.log(data.message);
+                    return;
+                case "end":
+                    console.log(`Port ${this.config.port} has stopped sharing`);
+                    return;
+            }
+        })
+
         this.run();
     }
 }
