@@ -1,0 +1,25 @@
+{
+  "name": "@fullstacked/share",
+  "version": "0.10.0",
+  "description": "Share a listening port from your localhost to the public internet",
+  "main": "index.js",
+  "author": "cplepage",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@fullstacked/cli": "^0.10.3",
+    "cookie": "^0.5.0",
+    "http-proxy": "^1.18.1",
+    "prompts": "^2.4.2",
+    "ws": "^8.12.1"
+  },
+  "devDependencies": {
+    "@types/cookie": "^0.5.1",
+    "@types/http-proxy": "^1.17.11",
+    "@types/prompts": "^2.4.4",
+    "@types/ws": "^8.5.4"
+  },
+  "exports": {
+    ".": "./index.js"
+  }
+}

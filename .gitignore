@@ -13,3 +13,4 @@ version.ts
 .fullstacked
 *.tgz
 test
+package-lock.json

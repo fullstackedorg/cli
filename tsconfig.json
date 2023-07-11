@@ -15,11 +15,5 @@
             "@fullstacked/deploy/*": ["./packages/deploy/*"]
         }
     },
-    "include": [
-        "info.ts",
-        "version.ts",
-        "utils",
-        "packages"
-    ],
     "exclude": ["packages/gui"]
 }
