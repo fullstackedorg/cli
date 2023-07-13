@@ -1,6 +1,6 @@
 {
   "name": "@fullstacked/share",
-  "version": "0.10.1",
+  "version": "0.10.4",
   "description": "Share a listening port from your localhost to the public internet",
   "main": "index.js",
   "author": "cplepage",

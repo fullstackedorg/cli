@@ -44,6 +44,7 @@ export default class Share extends CommandInterface {
     config = CLIParser.getCommandLineArgumentsValues(Share.commandLineArguments);
 
     accessTokens = new Set<string>();
+    private ws: WebSocket = null;
     listeners: Set<(data: ShareEventCallbackData) => any> = new Set();
 
     waitTwoMinutesForAuth(validateURL: string){
@@ -90,15 +91,15 @@ export default class Share extends CommandInterface {
 
     run(): void {
         const serverURL = new URL(this.config.server);
-        const ws = new WebSocket(`${serverURL.protocol === "https:" ? "wss" : "ws"}://${serverURL.host}`);
+        this.ws = new WebSocket(`${serverURL.protocol === "https:" ? "wss" : "ws"}://${serverURL.host}`);
         const proxiedWS = new Map<string, WebSocket>();
-        ws.on("message",  async (message) => {
+        this.ws.on("message",  async (message) => {
             const data = JSON.parse(message.toString());
             if(data.require === "password"){
                 this.listeners.forEach(listener => {
                     listener({
                         type: "password",
-                        callback: (password) => ws.send(JSON.stringify({
+                        callback: (password) => this.ws.send(JSON.stringify({
                             reqId: data.reqId,
                             data: password
                         }))
@@ -156,7 +157,7 @@ export default class Share extends CommandInterface {
                 }
 
                 // return req to share-server
-                ws.send(JSON.stringify({
+                this.ws.send(JSON.stringify({
                     reqId: data.reqId,
                     data: userData
                 }));
@@ -184,7 +185,7 @@ export default class Share extends CommandInterface {
                     });
                     proxiedWS.set(data.wsId, proxyWS);
                     proxyWS.on("message", message => {
-                        ws.send(JSON.stringify({
+                        this.ws.send(JSON.stringify({
                             ws: true,
                             wsId: data.wsId,
                             data: message.toString()
@@ -211,7 +212,7 @@ export default class Share extends CommandInterface {
                         if(parsedBody.password === this.config.password){
                             const accessToken = randomUUID();
                             this.accessTokens.add(accessToken);
-                            ws.send(JSON.stringify({
+                            this.ws.send(JSON.stringify({
                                 reqId: data.reqId,
                                 data: {
                                     status: 200,
@@ -226,7 +227,7 @@ export default class Share extends CommandInterface {
                         }
                     }
 
-                    ws.send(JSON.stringify({
+                    this.ws.send(JSON.stringify({
                         reqId: data.reqId,
                         data: {
                             status: 200,
@@ -240,28 +241,37 @@ export default class Share extends CommandInterface {
 
             delete data.headers.connection;
 
-            const response = await fetch(`http://0.0.0.0:${this.config.port}${data.url}`, {
-                method: data.method,
-                headers: data.headers
-            });
+            let response;
+            try {
+                response = await fetch(`http://0.0.0.0:${this.config.port}${data.url}`, {
+                    method: data.method,
+                    headers: data.headers
+                });
+            } catch (e) {
+                this.stop();
+                return;
+            }
             const responseData = await response.arrayBuffer();
             const uint8Array = new Uint8Array(responseData);
             const body = uint8Array.reduce((acc, i) =>
                 acc + String.fromCharCode.apply(null, [i]), '');
             const headers = [];
             response.headers.forEach((value, key) => headers.push([key, value]));
-            ws.send(JSON.stringify({reqId: data.reqId, data: {
+            this.ws.send(JSON.stringify({reqId: data.reqId, data: {
                 status: response.status,
                 headers,
                 body
             }}));
         });
-        ws.on("close", () => {
+        this.ws.on("close", () => {
             this.listeners.forEach(listener => {
                 listener({type: "end"})
-            })
-            process.exit();
+            });
         })
+    }
+
+    stop(){
+        this.ws.close();
     }
 
     runCLI(): void {
@@ -286,6 +296,7 @@ export default class Share extends CommandInterface {
                     return;
                 case "end":
                     console.log(`Port ${this.config.port} has stopped sharing`);
+                    process.exit();
                     return;
             }
         })
