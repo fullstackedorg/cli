@@ -1,6 +1,6 @@
 import {execSync} from "child_process";
 import {resolve} from "path";
-import {readFileSync, rmSync, writeFileSync} from "fs";
+import {existsSync, readFileSync, rmSync, writeFileSync} from "fs";
 
 function packPackage(packageDirectory: string){
     const packageFilename = execSync("npm pack", {cwd: packageDirectory})
@@ -30,8 +30,10 @@ function removePackages(packageLocation: string, packages: string[]){
         delete packageJSON.dependencies[packageName];
     });
     writeFileSync(packageLocation + "/package.json", JSON.stringify(packageJSON, null, 2));
-    rmSync(packageLocation + "/node_modules", {recursive: true});
-    rmSync(packageLocation + "/package-lock.json");
+    if(existsSync(packageLocation + "/node_modules"))
+        rmSync(packageLocation + "/node_modules", {recursive: true});
+    if(existsSync(packageLocation + "/package-lock.json"))
+        rmSync(packageLocation + "/package-lock.json");
 }
 
 // pack packages
