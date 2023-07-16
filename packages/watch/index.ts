@@ -123,10 +123,6 @@ export default class Watch extends CommandInterface {
         const dockerComposeFileName = `${this.config.outputDir}/docker-compose.yml`;
         fs.writeFileSync(dockerComposeFileName, yaml.dump(mergedDockerCompose));
 
-        fullstackedRun.config = {
-            dockerCompose: dockerComposeFileName
-        }
-
         await fullstackedRun.run();
 
         await fullstackedRun.attachToContainer("node");

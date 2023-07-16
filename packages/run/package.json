@@ -1,13 +1,13 @@
 {
   "name": "@fullstacked/run",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "Run your Web App",
   "main": "index.js",
   "author": "cplepage",
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@fullstacked/cli": "file:../../fullstacked-cli-0.10.4.tgz",
+    "@fullstacked/cli": "^0.10.4",
     "dockerode-compose": "^1.3.3"
   },
   "exports": {
