@@ -12,12 +12,12 @@ import {execSync} from "child_process";
 
 export default class Run extends CommandInterface {
     static commandLineArguments = {
-        dockerCompose: {
+        outputDir: {
             type: "string",
-            short: "d",
-            default: resolve(process.cwd(), "dist", "docker-compose.yml"),
-            description: "Bundled docker compose file to run",
-            defaultDescription: "./dist/docker-compose.yml"
+            short: "o",
+            default: "./dist",
+            description: "Output directory where all the bundled files are",
+            defaultDescription: "./dist"
         },
         pull: {
             type: "boolean",
@@ -73,7 +73,7 @@ export default class Run extends CommandInterface {
     }
 
     async startNative(){
-        const workdir = dirname(this.config.dockerCompose);
+        const workdir = this.config.outputDir;
         const port = await getNextAvailablePort(8000);
         console.log(`${Info.webAppName} v${Info.version} is running at http://localhost:${port}`);
         if(process.platform === "win32")
@@ -111,8 +111,9 @@ export default class Run extends CommandInterface {
     }
 
     async run(): Promise<void> {
+        const bundledDockerCompose = resolve(this.config.outputDir, "docker-compose.yml");
         this.dockerClient = await Docker.getClient();
-        this.dockerCompose = new DockerCompose(this.dockerClient, this.config.dockerCompose, Info.webAppName);
+        this.dockerCompose = new DockerCompose(this.dockerClient, bundledDockerCompose, Info.webAppName);
 
         if (this.config.stop) {
             return this.stop();

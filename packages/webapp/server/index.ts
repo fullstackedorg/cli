@@ -106,7 +106,7 @@ export default class {
                     }
                 }
 
-                // break if response has managed to send
+                // break if response managed to send
                 if(res.headersSent) break;
             }
 

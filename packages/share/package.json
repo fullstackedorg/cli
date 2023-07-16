@@ -1,13 +1,13 @@
 {
   "name": "@fullstacked/share",
-  "version": "0.10.4",
+  "version": "0.10.5",
   "description": "Share a listening port from your localhost to the public internet",
   "main": "index.js",
   "author": "cplepage",
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@fullstacked/cli": "^0.10.4",
+    "@fullstacked/cli": "file:../../fullstacked-cli-0.10.4.tgz",
     "cookie": "^0.5.0",
     "http-proxy": "^1.18.1",
     "prompts": "^2.4.2",
