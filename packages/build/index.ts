@@ -213,8 +213,8 @@ export default class Build extends CommandInterface {
         dockerComposeSpecs.forEach((dockerComposeSpec) => {
             dockerComposeRootAttributes.forEach((attribute) => {
                 dockerCompose[attribute] = {
-                    ...dockerCompose[attribute],
-                    ...dockerComposeSpec[attribute]
+                    ...dockerComposeSpec[attribute],
+                    ...dockerCompose[attribute]
                 };
             });
         });
