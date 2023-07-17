@@ -70,13 +70,16 @@ export default class Share extends CommandInterface {
 
     getCacheData(){
         const cacheDir = os.homedir() + "/.cache";
-        if(!cacheDir)
+        if(!fs.existsSync(cacheDir))
             fs.mkdirSync(cacheDir);
 
         const shareCacheFile = cacheDir + "/fullstacked-share.json";
+        if(!fs.existsSync(shareCacheFile))
+            fs.writeFileSync(shareCacheFile, "{}");
+
         return {
             filePath: shareCacheFile,
-            data: fs.existsSync(shareCacheFile) ? JSON.parse(fs.readFileSync(shareCacheFile).toString()) : {}
+            data: JSON.parse(fs.readFileSync(shareCacheFile).toString())
         }
     }
 
@@ -180,7 +183,7 @@ export default class Share extends CommandInterface {
                     proxiedWS.delete(data.wsId);
                     return;
                 }else if(data.url){
-                    const proxyWS = new WebSocket(`ws://0.0.0.0:${this.config.port}${data.url}`, {
+                    const proxyWS = new WebSocket(`ws://0.0.0.0:${this.config.port}${data.url}`, data.headers["sec-websocket-protocol"],{
                         headers: data.headers
                     });
                     proxiedWS.set(data.wsId, proxyWS);
