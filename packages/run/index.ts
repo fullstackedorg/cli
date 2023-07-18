@@ -46,6 +46,9 @@ export default class Run extends CommandInterface {
             type: "string[]",
             description: "Attach to containers for logs",
             defaultDescription: "None, runs detached"
+        },
+        forceDocker: {
+            type: "boolean"
         }
     } as const;
     config = CLIParser.getCommandLineArgumentsValues(Run.commandLineArguments);
@@ -61,6 +64,21 @@ export default class Run extends CommandInterface {
                 if((await container.inspect()).State.Status === 'running')
                     await container.stop({t: 0});
                 await container.remove({force: true});
+            }catch (e) { }
+
+            resolve();
+        })));
+        try{
+            await this.dockerCompose.down();
+        }catch (e){ }
+
+        const networks = Object.keys(this.dockerCompose.recipe.networks);
+        await Promise.all(networks.map(networkLabel => new Promise<void>(async resolve => {
+            const networkName = this.dockerCompose.recipe.networks[networkLabel]?.name || networkLabel;
+            try{
+                const filteredNetworks = await this.dockerClient.listNetworks({filters: { name: [networkName]}});
+                if(filteredNetworks.length)
+                    await this.dockerClient.getNetwork(filteredNetworks[0].Id).remove();
             }catch (e) { }
 
             resolve();
@@ -85,7 +103,7 @@ export default class Run extends CommandInterface {
     async start(){
         const services = Object.keys(this.dockerCompose.recipe.services);
 
-        if(services.length === 1){
+        if(!this.config.forceDocker && services.length === 1){
             return this.startNative();
         }
 

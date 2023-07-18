@@ -268,7 +268,7 @@ export default class Deploy extends CommandInterface {
                 continue;
 
             for (const port of service.ports) {
-                const internalPort = port.split(":").pop();
+                const internalPort = port.toString().split(":").pop();
 
                 servicesToSetup.push({
                     name: serviceName,
@@ -618,13 +618,12 @@ export default class Deploy extends CommandInterface {
             }
         });
 
-        Object.keys(dockerCompose.networks).forEach(network => {
-            if(dockerCompose.networks[network] === null)
-                dockerCompose.networks[network] = {};
+        Object.keys(dockerCompose.networks).forEach(networkLabel => {
+            const network = dockerCompose.networks[networkLabel] ?? {};
 
-            dockerCompose.networks[network] = {
-                ...dockerCompose.networks[network],
-                name: Info.webAppName + "_" + network
+            dockerCompose.networks[networkLabel] = {
+                ...network,
+                name: network.name || (Info.webAppName + "_" + networkLabel)
             }
         });
 
@@ -692,8 +691,14 @@ export default class Deploy extends CommandInterface {
 
 
             for (let i = 0; i < dockerCompose.services[nginxConfig.name].ports.length; i++) {
-                const servicePort = dockerCompose.services[nginxConfig.name].ports[i].split(":").pop();
-                if(servicePort !== nginxConfig.port.toString()) continue;
+                let port = dockerCompose.services[nginxConfig.name].ports[i];
+                if(typeof port !== "string")
+                    port = port.toString();
+
+                const servicePort = port.split(":").pop();
+
+                // check if defined a precise port
+                if(servicePort !== port) continue;
 
                 dockerCompose.services[nginxConfig.name].ports[i] = `${availablePort}:${nginxConfig.port}`;
             }

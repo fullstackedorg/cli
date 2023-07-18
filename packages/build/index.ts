@@ -213,8 +213,8 @@ export default class Build extends CommandInterface {
         dockerComposeSpecs.forEach((dockerComposeSpec) => {
             dockerComposeRootAttributes.forEach((attribute) => {
                 dockerCompose[attribute] = {
-                    ...dockerComposeSpec[attribute],
-                    ...dockerCompose[attribute]
+                    ...dockerCompose[attribute],
+                    ...dockerComposeSpec[attribute]
                 };
             });
         });
@@ -237,7 +237,7 @@ export default class Build extends CommandInterface {
                     "NODE_ENV=production"
                 ];
             }
-            dockerComposeSpecs.push(nodeDockerComposeSpec);
+            dockerComposeSpecs.unshift(nodeDockerComposeSpec);
         }
 
         if(!dockerComposeSpecs.length) return;

@@ -18,7 +18,12 @@ export default class Watch extends CommandInterface {
                 restart: "unless-stopped",
                 expose: ["8000"],
                 ports: ["8000"],
-                volumes: [`${process.cwd()}:/project`]
+                volumes: [`${process.cwd()}:/project`],
+                command: [
+                    "/bin/sh",
+                    "-c",
+                    `DOCKER=1 npx fullstacked watch`
+                ]
             }
         }
     };
@@ -102,24 +107,13 @@ export default class Watch extends CommandInterface {
         const fullstackedBuild = new fullstackedBuildModule();
         const fullstackedRun = new fullstackedRunModule();
 
-        const watcherComposeSpec = {
-            services: {
-                node: {
-                    ...Watch.fullstackedNodeDockerComposeSpec.services.node,
-                    command: [
-                        "/bin/sh",
-                        "-c",
-                        `DOCKER=1 npx fullstacked watch`
-                    ]
-                }
-            }
-        };
-
-        const dockerComposeSpecs = [watcherComposeSpec].concat(this.config.dockerCompose.map((dockerComposeFile) =>
+        const dockerComposeSpecs = [fullstackedBuildModule.fullstackedNodeDockerComposeSpec].concat(this.config.dockerCompose.map((dockerComposeFile) =>
             yaml.load(fs.readFileSync(dockerComposeFile).toString())));
         const mergedDockerCompose = fullstackedBuild.mergeDockerComposeSpecs(dockerComposeSpecs);
-
-
+        mergedDockerCompose.services.node = {
+            ...mergedDockerCompose.services.node,
+            ...Watch.fullstackedNodeDockerComposeSpec.services.node
+        }
         const dockerComposeFileName = `${this.config.outputDir}/docker-compose.yml`;
         fs.writeFileSync(dockerComposeFileName, yaml.dump(mergedDockerCompose));
 
