@@ -371,7 +371,8 @@ export function convertImportDefinitionToAsyncImport(
         ".ttf",
         ".otf",
         ".json",
-        ".wasm"
+        ".wasm",
+        ".html"
     ].find(ext => moduleName.endsWith(ext));
     if (fileLoader) {
         return [
