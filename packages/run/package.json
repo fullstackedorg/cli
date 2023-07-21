@@ -1,6 +1,6 @@
 {
   "name": "@fullstacked/run",
-  "version": "0.10.6",
+  "version": "0.10.7",
   "description": "Run your Web App",
   "main": "index.js",
   "author": "cplepage",

@@ -238,6 +238,19 @@ export default async function(clientEntrypoint: string, serverEntrypoint: string
 
     const initServerWatch = modulePath => fs.watch(modulePath, async () => {
 
+        // asset file
+        if (!moduleExtensions.find(ext => modulePath.endsWith(ext))) {
+            fs.copyFileSync(modulePath, serverBuild.modulesFlatTree[modulePath].out)
+
+            if (!fs.existsSync(modulePath)) {
+                serverWatchers.get(modulePath).close();
+                serverWatchers.set(modulePath, initServerWatch(modulePath));
+            }
+
+            reloadServer();
+            return;
+        }
+
         let fileBuild: Awaited<ReturnType<typeof Builder>>;
         try {
             fileBuild = await Builder({
