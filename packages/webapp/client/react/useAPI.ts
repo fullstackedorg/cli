@@ -5,7 +5,7 @@ function useAPI<T extends (...args: Parameters<T>) => Promise<any>, R = Awaited<
 
     const fetchData = () => { method(...args).then((data) => setData(data)) }
 
-    if(!data)
+    if(data === null)
         fetchData()
 
     return [data as R, fetchData];
