@@ -1,12 +1,12 @@
 {
   "name": "@fullstacked/webapp",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "Use FullStacked Server and Client to rapidly build a Web App",
   "author": "cplepage",
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@fullstacked/cli": "file:../../fullstacked-cli-0.10.4.tgz",
+    "@fullstacked/cli": "^0.10.4",
     "fast-querystring": "^1.1.1",
     "mime": "^3.0.0",
     "parse5": "^7.1.2"
