@@ -7,7 +7,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@fullstacked/cli": "^0.10.4",
+    "@fullstacked/cli": "file:../../fullstacked-cli-0.10.4.tgz",
     "cookie": "^0.5.0",
     "http-proxy": "^1.18.1",
     "prompts": "^2.4.2",

@@ -91,8 +91,64 @@ export default class Share extends CommandInterface {
         }));
     }
 
+    async testEndpoints(data){
+        const {endpoints} = data;
 
-    run(): void {
+        if(!endpoints){
+            console.log("Did not receive a list of share-server endpoints. Received ", data);
+            return;
+        }
+
+        const latencies = await Promise.all(endpoints.map(endpoint => new Promise<number>(async (resolve) => {
+            const tests = [];
+            for (let i = 0; i < 10; i++) {
+                const start = performance.now();
+
+                let response;
+                try{
+                    response = await fetch(endpoint + "/hello");
+                }catch (e){
+                    return resolve(Number.MAX_VALUE);
+                }
+
+                tests.push(performance.now() - start);
+            }
+
+            resolve(tests.reduce((tot, value) => tot + value, 0) / tests.length);
+        })));
+
+        const bestEndpoint = endpoints[latencies.indexOf(Math.min(...latencies))];
+        this.config = {
+            ...this.config,
+            server: bestEndpoint
+        }
+
+        return this.run();
+    }
+
+
+
+    async run(): Promise<void> {
+        let response: Response;
+        try{
+            response = await fetch(this.config.server + "/hello");
+        }catch (e){
+            console.error(e);
+            console.log(`Can't reach share-server ${this.config.server}`);
+            return;
+        }
+
+        if(response.headers.get("content-type") === "application/json"){
+            return this.testEndpoints(await response.json());
+        }
+
+        const payload = await response.text();
+
+        if(payload !== "Bonjour") {
+            console.log(`Unknown response from share-server. Received [${payload}]`);
+            return;
+        }
+
         const serverURL = new URL(this.config.server);
         this.ws = new WebSocket(`${serverURL.protocol === "https:" ? "wss" : "ws"}://${serverURL.host}`);
         const proxiedWS = new Map<string, WebSocket>();
