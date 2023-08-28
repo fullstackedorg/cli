@@ -24,6 +24,8 @@ function modulePathToSafeJS(modulePath: string) {
     return splitAtDot.join(".") + ".js";
 }
 
+const bundleOutName = "externals.js";
+
 export default async function(clientEntrypoint: string, serverEntrypoint: string, outdir: string) {
     const clientBaseDir = dirname(clientEntrypoint);
     let clientBuild: Awaited<ReturnType<typeof Builder>>;
@@ -35,7 +37,8 @@ export default async function(clientEntrypoint: string, serverEntrypoint: string
             moduleResolverWrapperFunction: "getModuleImportPath",
             externalModules: {
                 convert: true,
-                bundle: true
+                bundle: true,
+                bundleOutName
             }
         });
     }
@@ -49,7 +52,8 @@ export default async function(clientEntrypoint: string, serverEntrypoint: string
             recurse: true,
             moduleResolverWrapperFunction: "getModuleImportPath",
             externalModules: {
-                convert: false,
+                convert: true,
+                bundleOutName
             }
         });
     }
@@ -72,7 +76,9 @@ export default async function(clientEntrypoint: string, serverEntrypoint: string
             data: {
                 tree: clientBuild.modulesFlatTree,
                 basePath: clientBaseDir,
-                entrypoint: clientEntrypoint + getModulePathExtension(clientEntrypoint)
+                entrypoint: clientEntrypoint + getModulePathExtension(clientEntrypoint),
+                externalModules: clientBuild.externalModules,
+                bundleOutName
             }
         }));
     });
@@ -216,6 +222,9 @@ export default async function(clientEntrypoint: string, serverEntrypoint: string
     });
 
     global.getModuleImportPath = (modulePath) => {
+        if(serverBuild.externalModules.includes(modulePath))
+            return resolve(process.cwd(), outdir, bundleOutName);
+
         const modulePathWithT = getModulePathWithT(modulePath, serverBuild.modulesFlatTree);
         if(modulePathWithT.isAsset) return serverBuild.modulesFlatTree[modulePath].out;
 

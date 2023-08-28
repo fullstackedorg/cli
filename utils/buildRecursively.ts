@@ -1,4 +1,4 @@
-import {build} from "esbuild";
+import {build, Plugin} from "esbuild";
 import {dirname, resolve} from "path";
 import fs from "fs";
 
@@ -13,7 +13,7 @@ export function convertPathToJSExt(filePath){
         return filePath + ".js";
 }
 
-async function recurse(filePath: string, filesToBuild: Set<string>){
+async function recurse(filePath: string, filesToBuild: Set<string>, plugins: Plugin[]= []){
     await build({
         entryPoints: [filePath],
         outfile: convertPathToJSExt(filePath),
@@ -21,7 +21,7 @@ async function recurse(filePath: string, filesToBuild: Set<string>){
         format: "esm",
         sourcemap: true,
         bundle: true,
-        plugins: [{
+        plugins: [...plugins, {
             name: "recursive-builder",
             setup(currentBuild){
                 currentBuild.onResolve({filter: /.*/}, async (args) => {
@@ -38,7 +38,8 @@ async function recurse(filePath: string, filesToBuild: Set<string>){
 
                     const relativeFilePathToBuild = filePathsToTest.find((fileEnd, index) => {
                         const maybeFile = resolve(dirname(currentBuild.initialOptions.entryPoints[0]), fileEnd);
-                        return fs.existsSync(maybeFile) && fs.statSync(maybeFile).isFile();
+                        return fs.existsSync(maybeFile) && fs.statSync(maybeFile).isFile()
+                            && (maybeFile.endsWith(".ts") || maybeFile.endsWith(".tsx"));
                     });
 
                     if(!relativeFilePathToBuild){
@@ -54,7 +55,7 @@ async function recurse(filePath: string, filesToBuild: Set<string>){
                         if(fs.existsSync(jsPath)) fs.rmSync(jsPath)
                         if(fs.existsSync(jsPath + ".map")) fs.rmSync(jsPath + ".map");
 
-                        await recurse(absoluteFilePathToBuild, filesToBuild);
+                        await recurse(absoluteFilePathToBuild, filesToBuild, plugins);
                     }
 
                     return {
@@ -67,13 +68,13 @@ async function recurse(filePath: string, filesToBuild: Set<string>){
     });
 }
 
-export default async function buildRecursively(entrypoints: string[], silent = false) {
+export default async function buildRecursively(entrypoints: string[], silent = false, plugins: Plugin[] = []) {
     const filesToBuild = new Set<string>();
     const start = Date.now();
 
     await Promise.all(entrypoints.map(entry => new Promise<void>(async resolve => {
         filesToBuild.add(entry);
-        await recurse(entry, filesToBuild);
+        await recurse(entry, filesToBuild, plugins);
         resolve();
     })));
 

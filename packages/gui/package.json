@@ -18,8 +18,8 @@
   "devDependencies": {
     "@fullstacked/build": "file:../build/fullstacked-build-0.10.5.tgz",
     "@fullstacked/deploy": "file:../deploy/fullstacked-deploy-0.10.7.tgz",
-    "@fullstacked/watch": "file:../watch/fullstacked-watch-0.10.9.tgz",
-    "@fullstacked/webapp": "file:../webapp/fullstacked-webapp-0.10.2.tgz",
+    "@fullstacked/watch": "file:../watch/fullstacked-watch-0.10.10-alpha.2.tgz",
+    "@fullstacked/webapp": "file:../webapp/fullstacked-webapp-0.10.3.tgz",
     "@tabler/core": "^1.0.0-beta17",
     "@types/react": "^18.0.28",
     "@types/ws": "^8.5.4",
@@ -30,6 +30,6 @@
     "ws": "^8.12.1"
   },
   "dependencies": {
-    "@fullstacked/cli": "^0.10.4"
+    "@fullstacked/cli": "file:../../fullstacked-cli-0.10.5.tgz"
   }
 }

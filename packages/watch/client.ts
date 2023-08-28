@@ -4,7 +4,7 @@ const ws = new WebSocket("ws" +
     (window.location.protocol === "https:" ? "s" : "") +
     "://" + window.location.host + "/fullstacked-watch");
 
-let tree, basePath, entrypoint;
+let tree, basePath, entrypoint, externalModules, bundleOutName;
 
 function removeError() {
     document.querySelector("#error-container")?.remove();
@@ -67,6 +67,9 @@ declare global {
 }
 
 window.getModuleImportPath = (modulePath) => {
+    if(externalModules.includes(modulePath))
+        return "/" + bundleOutName;
+
     const {path} = getModulePathWithT(modulePath, tree);
     return path.replace(basePath, "");
 }
@@ -89,6 +92,8 @@ ws.onmessage = async (message) => {
         case "setup":
             tree = data.tree;
             basePath = data.basePath;
+            externalModules = data.externalModules;
+            bundleOutName = data.bundleOutName;
             const possibleEntrypoint = window.getModuleImportPath(data.entrypoint, tree).split("?").shift();
             document.querySelectorAll("script").forEach(scriptElement => {
                 const src = scriptElement.getAttribute("src");

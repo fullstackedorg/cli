@@ -48,8 +48,13 @@ export default async function(options: BuilderOptions, withExternalModules: stri
     const entrypointDir = dirname(options.entrypoint);
     const mainOutDir = resolve(options.outdir, entrypointDir);
 
-    if (options.externalModules.bundle && externalModules?.length) {
-        await bundleExternalModules(externalModules, mainOutDir, options.externalModules.bundleOutName);
+    if(externalModules?.length){
+        if (options.externalModules.bundle) {
+            await bundleExternalModules(externalModules, mainOutDir, options.externalModules.bundleOutName);
+        }else{
+            fs.writeFileSync(resolve(options.outdir, options.externalModules.bundleOutName), externalModules.map(externalModule =>
+                `export * as ${safeExternalModuleName(externalModule)} from "${externalModule}";`).join("\n"));
+        }
     }
 
     if (cssFiles.length) {
@@ -177,10 +182,8 @@ async function builder(options: Omit<BuilderOptions, 'entrypoints'> & {entrypoin
                                 if (!externalModules.includes(moduleName))
                                     externalModules.push(moduleName)
 
-                                const indexOfExternalModule = externalModules.indexOf(moduleName);
-
                                 const bundleName = options.publicPath + options.externalModules.bundleOutName;
-                                const externalModuleIntermediateName = "externalModule" + indexOfExternalModule;
+                                const externalModuleIntermediateName = safeExternalModuleName(moduleName);
 
                                 if(importDefinition.line){
                                     dynamicImports.push({
@@ -191,7 +194,7 @@ async function builder(options: Omit<BuilderOptions, 'entrypoints'> & {entrypoin
                                         }
                                     })
                                 }else{
-                                    asyncImports.push(...convertImportDefinitionToAsyncImport(bundleName, importDefinition, externalModuleIntermediateName, undefined, true));
+                                    asyncImports.push(...convertImportDefinitionToAsyncImport(moduleName, importDefinition, externalModuleIntermediateName, options.moduleResolverWrapperFunction, true));
                                 }
                             }
 
@@ -321,7 +324,7 @@ export function getModulePathExtension(modulePath: ModulePath) {
 
 export async function bundleExternalModules(modulesList, outdir, bundleName) {
     const intermediateFile = `./${randStr()}.js`;
-    fs.writeFileSync(intermediateFile, modulesList.map((moduleName, i) => `export * as externalModule${i} from "${moduleName}";`).join('\n'));
+    fs.writeFileSync(intermediateFile, modulesList.map((moduleName) => `export * as ${safeExternalModuleName(moduleName)} from "${moduleName}";`).join('\n'));
     await build({
         entryPoints: [intermediateFile],
         format: "esm",
@@ -372,4 +375,10 @@ export async function bundleCSSFiles(modulesList, outdir, bundleName) {
             }
         }]
     });
+}
+
+export const safeExternalModuleName = (moduleName: string) => {
+    return "external_" + moduleName
+        .replace(/(\/|-)/g, "_")
+        .replace(/@/g, "")
 }
