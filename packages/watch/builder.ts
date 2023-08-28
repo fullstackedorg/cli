@@ -231,7 +231,7 @@ async function builder(options: Omit<BuilderOptions, 'entrypoints'> & {entrypoin
                                 const assetFileNameSplitAtDots = assetFileName.split(".");
                                 const extension = assetFileNameSplitAtDots.pop();
 
-                                const uniqName = `${assetFileNameSplitAtDots.join(".")}-${randStr()}.${extension}`
+                                const uniqName = `${pathSplitAtSlash.slice(1).join("-")}-${assetFileNameSplitAtDots.join(".")}.${extension}`
 
                                 assetFiles.push({
                                     assetPath: moduleRelativePathToProject,
