@@ -3,7 +3,7 @@
 <img src="https://files.cplepage.com/fullstacked/favicon.png" alt="FullStacked Logo" width="50px" />
 </a>
 </p>
-<h1 align="center">FullStacked</h1>
+<h1 align="center">FullStacked CLI</h1>
 <h3 align="center">Web development at its finest</h3>
 <p align="center">
 <a href="https://www.npmjs.com/package/fullstacked"><img src="https://badgen.net/npm/v/fullstacked" alt="version"/>
