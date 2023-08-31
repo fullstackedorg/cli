@@ -201,7 +201,9 @@ async function builder(options: Omit<BuilderOptions, 'entrypoints'> & {entrypoin
                             continue;
                         }
 
-                        let moduleRelativePathToProject = resolve(currentDir, moduleName).replace(process.cwd(), ".");
+                        let moduleRelativePathToProject = resolve(currentDir, moduleName)
+                            .replace(process.cwd(), ".")
+                            .replace(/\\/g, "/"); // windows reversed slash
                         const extension = getModulePathExtension(moduleRelativePathToProject);
 
                         moduleRelativePathToProject += extension;
@@ -379,6 +381,6 @@ export async function bundleCSSFiles(modulesList, outdir, bundleName) {
 
 export const safeExternalModuleName = (moduleName: string) => {
     return "external_" + moduleName
-        .replace(/(\/|-)/g, "_")
+        .replace(/(\/|-|\.)/g, "_")
         .replace(/@/g, "")
 }

@@ -37,7 +37,7 @@ export function getModulePathWithT(modulePath, tree) {
     if (!tree[modulePath].t)
         tree[modulePath].t = 0;
 
-    return {path: moduleSafePath +"?t=" + tree[modulePath].t, isAsset};
+    return {path: moduleSafePath, t: tree[modulePath].t, isAsset};
 }
 
 function invalidateModulesRecursively(modulePath, t, tree) {
