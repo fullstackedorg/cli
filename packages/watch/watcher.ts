@@ -223,12 +223,15 @@ export default async function(clientEntrypoint: string, serverEntrypoint: string
 
     global.getModuleImportPath = (modulePath) => {
         if(serverBuild.externalModules.includes(modulePath))
-            return resolve(process.cwd(), outdir, bundleOutName);
+            return pathToFileURL(resolve(process.cwd(), outdir, bundleOutName));
 
         const modulePathWithT = getModulePathWithT(modulePath, serverBuild.modulesFlatTree);
-        if(modulePathWithT.isAsset) return serverBuild.modulesFlatTree[modulePath].out;
+        if(modulePathWithT.isAsset)
+            return serverBuild.modulesFlatTree[modulePath].out;
 
-        return resolve(process.cwd(), outdir, modulePathWithT.path);
+        const fileURL = pathToFileURL(resolve(process.cwd(), outdir, modulePathWithT.path));
+        fileURL.searchParams.set("t", modulePathWithT.t);
+        return fileURL;
     };
 
     let reloadThrottler;

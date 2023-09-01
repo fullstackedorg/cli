@@ -70,8 +70,8 @@ window.getModuleImportPath = (modulePath) => {
     if(externalModules.includes(modulePath))
         return "/" + bundleOutName;
 
-    const {path} = getModulePathWithT(modulePath, tree);
-    return path.replace(basePath, "");
+    const {path, t} = getModulePathWithT(modulePath, tree);
+    return path.replace(basePath, "") + `?t=${t}`;
 }
 
 let throttler;
