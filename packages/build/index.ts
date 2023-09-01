@@ -138,7 +138,11 @@ export default class Build extends CommandInterface {
             'process.env.HASH': JSON.stringify(Info.hash)
         };
         Object.keys(process.env).forEach((envKey) => {
-            if (envKey.includes("(") || envKey.includes(")") || envKey.includes("-") || envKey.includes("%"))
+            if (envKey.includes("(")
+                || envKey.includes(")")
+                || envKey.includes("-")
+                || envKey.includes("%")
+                || envKey === "PATH")
                 return;
             processEnv["process.env." + envKey] = "'" + escape(process.env[envKey].trim()) + "'";
         });

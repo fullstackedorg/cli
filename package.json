@@ -1,6 +1,6 @@
 {
   "name": "@fullstacked/cli",
-  "title": "FullStacked",
+  "title": "FullStacked CLI",
   "version": "0.10.6",
   "description": "A CLI that takes care of all the redundant tasks in TypeScript web app development.",
   "scripts": {
@@ -32,7 +32,6 @@
   },
   "homepage": "https://fullstacked.org",
   "bin": {
-    "fullstacked": "cli.js",
     "fsc": "cli.js"
   },
   "devDependencies": {
