@@ -83,7 +83,9 @@ export default class Watch extends CommandInterface {
 
         if(!this.config.dockerCompose.length || process.env.DOCKER){
             process.env.CLIENT_DIR = resolve(this.config.outputDir, dirname(this.config.client));
-            process.env.PORT = process.env.DOCKER ? "8000" : (await getNextAvailablePort(8000)).toString();
+            process.env.PORT = process.env.DOCKER
+                ? "8000"
+                : (process.env.PORT || (await getNextAvailablePort(8000)).toString());
             console.log(`${Info.webAppName} v${Info.version} is running at http://localhost:${process.env.PORT}`);
             await watcher(this.config.client, this.config.server, this.config.outputDir);
             return;
