@@ -30,6 +30,6 @@
     "ws": "^8.12.1"
   },
   "dependencies": {
-    "@fullstacked/cli": "^0.10.6"
+    "@fullstacked/cli": "^0.10.7"
   }
 }

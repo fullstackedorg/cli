@@ -1,7 +1,7 @@
 import {Socket} from "net";
 
 // source: https://stackoverflow.com/a/66116887
-export default function getNextAvailablePort(port: number = 8000): Promise<number> {
+export default function getNextAvailablePort(port: number = 8000, host = "0.0.0.0"): Promise<number> {
     return new Promise((resolve, reject) => {
         const socket = new Socket();
 
@@ -30,6 +30,6 @@ export default function getNextAvailablePort(port: number = 8000): Promise<numbe
             }
         });
 
-        socket.connect(port, "0.0.0.0");
+        socket.connect(port, host);
     });
 }

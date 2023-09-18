@@ -608,24 +608,29 @@ export default class Deploy extends CommandInterface {
     private async setupDockerComposeAndNginx(): Promise<{ nginxFiles: NginxFile[], dockerCompose: string }>{
         const dockerCompose = yaml.load(fs.readFileSync(resolve(this.config.outputDir, "docker-compose.yml")).toString());
 
-        Object.keys(dockerCompose.volumes).forEach(volume => {
-            if(dockerCompose.volumes[volume] === null)
-                dockerCompose.volumes[volume] = {};
+        if(dockerCompose.volumes){
+            Object.keys(dockerCompose.volumes).forEach(volume => {
+                if(dockerCompose.volumes[volume] === null)
+                    dockerCompose.volumes[volume] = {};
 
-            dockerCompose.volumes[volume] = {
-                ...dockerCompose.volumes[volume],
-                name: Info.webAppName + "_" + volume
-            }
-        });
+                dockerCompose.volumes[volume] = {
+                    ...dockerCompose.volumes[volume],
+                    name: Info.webAppName + "_" + volume
+                }
+            });
+        }
 
-        Object.keys(dockerCompose.networks).forEach(networkLabel => {
-            const network = dockerCompose.networks[networkLabel] ?? {};
+        if(dockerCompose.networks){
+            Object.keys(dockerCompose.networks).forEach(networkLabel => {
+                const network = dockerCompose.networks[networkLabel] ?? {};
 
-            dockerCompose.networks[networkLabel] = {
-                ...network,
-                name: network.name || (Info.webAppName + "_" + networkLabel)
-            }
-        });
+                dockerCompose.networks[networkLabel] = {
+                    ...network,
+                    name: network.name || (Info.webAppName + "_" + networkLabel)
+                }
+            });
+        }
+
 
         // set default to node if no nginx configs
         const availablePorts = await this.getAvailablePorts(this.nginxConfigs.length);

@@ -1,5 +1,4 @@
 class Client<ApiDefinition> {
-    private origin;
     private cache: {[key: string]: any};
     private recurseInProxy(method: "GET" | "POST" | "PUT" | "DELETE", useCache = false, pathComponents: string[] = []){
         return new Proxy(fetchCall.bind(this), {
@@ -31,6 +30,7 @@ class Client<ApiDefinition> {
             }
         })
     }
+    origin;
     headers: {[key: string]: string} = {};
     requestOptions: RequestInit = {}
 
@@ -112,6 +112,7 @@ export default function createClient<ApiDefinition>(origin = "") {
     return new Client<ApiDefinition>(origin) as {
         requestOptions: Client<ApiDefinition>['requestOptions'],
         headers: Client<ApiDefinition>['headers'],
+        origin: Client<ApiDefinition>['origin'],
         get(useCache?: boolean): AwaitAll<ApiDefinition>,
         post(): AwaitAll<ApiDefinition>,
         put(): AwaitAll<ApiDefinition>,

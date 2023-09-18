@@ -125,6 +125,7 @@ export default class {
             this.listeners[urlPrefix].push(listener);
     }
 
+    staticFilesCacheControl;
     staticFilesAndPagesHandler(req, res: ServerResponse) {
         // remove query params
         let fileURL = req.url.split("?").shift();
@@ -148,6 +149,11 @@ export default class {
         const filePath = resolve(this.clientDir, fileURL.slice(1));
 
         if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return;
+
+        // cache control for static files
+        if(this.staticFilesCacheControl){
+            res.setHeader("cache-control", this.staticFilesCacheControl);
+        }
 
         res.setHeader("content-type", mime.getType(filePath));
         res.writeHead(200);
