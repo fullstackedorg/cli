@@ -3,7 +3,7 @@
   "version": "0.10.6",
   "description": "Build your Web App source code into a ready to run bundle",
   "dependencies": {
-    "@fullstacked/cli": "^0.10.7",
+    "@fullstacked/cli": "^0.10.10",
     "esbuild": "^0.14.27",
     "fast-glob": "^3.2.12",
     "js-yaml": "^4.1.0"

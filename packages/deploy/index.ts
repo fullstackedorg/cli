@@ -615,7 +615,7 @@ export default class Deploy extends CommandInterface {
 
                 dockerCompose.volumes[volume] = {
                     ...dockerCompose.volumes[volume],
-                    name: Info.webAppName + "_" + volume
+                    name: dockerCompose.volumes[volume].name || Info.webAppName + "_" + volume
                 }
             });
         }

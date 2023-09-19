@@ -22,7 +22,7 @@ export async function maybePullDockerImage(image, tag?, options = {
         if(!options.fallbackTag || options.fallbackTag === tag)
             throw new Error(`Can neither find [${image}:${tag}] on local machine and Docker Hub`);
 
-        return maybePullDockerImage(options.fallbackTag);
+        return maybePullDockerImage(image, options.fallbackTag);
     }
     // tag exists locally, but not on Docker Hub, proceed.
     else if(localImageInspect && !lastTagPush)

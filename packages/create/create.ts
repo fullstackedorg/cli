@@ -23,20 +23,16 @@ export default function() {
     const packageJSONData = JSON.parse(fs.readFileSync(packageJSONFile).toString());
     packageJSONData.type = "module";
     packageJSONData.scripts = {
-        start: "npx fullstacked watch"
+        start: "npx fsc watch"
     }
     fs.writeFileSync(packageJSONFile, JSON.stringify(packageJSONData, null, 2));
 
-    const fullstackedPackage = fs.existsSync(tag)
-        ? tag
-        : `fullstacked@${tag}`;
 
     const packageVersion = (pkg) => fs.existsSync(tag)
         ? pkg
         : `${pkg}@${tag}`;
 
     execSync(["npm", "i",
-        fullstackedPackage,
         packageVersion("@fullstacked/watch"),
         packageVersion("@fullstacked/webapp"),
         ...(!js
