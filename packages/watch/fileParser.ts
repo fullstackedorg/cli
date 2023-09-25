@@ -24,6 +24,11 @@ export function tokenizeImports(content): {
     for (const char of content) {
         if (char === "\n") line++;
 
+        if(char === "[" || char === ","){
+            accumulator.push(char, "");
+            continue;
+        }
+
         /*
         * File was starting with comment
         *
@@ -42,17 +47,6 @@ export function tokenizeImports(content): {
             if (accumulator[accumulator.length - 1] !== "")
                 accumulator.push("");
 
-            continue;
-        }
-
-        /*
-        *
-        * import { export1, export2 } from "module-name"
-        *                 ⌃ Here
-        */
-        if (inImportStatement && char === ",") {
-            accumulator.push(",");
-            accumulator.push("");
             continue;
         }
 
