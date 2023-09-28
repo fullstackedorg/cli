@@ -22,6 +22,11 @@ export function tokenizeImports(content): {
         inModuleName = false,
         inDynamicImport = false;
     for (const char of content) {
+        if(char === ";"){
+            accumulator = [];
+            continue;
+        }
+
         if (char === "\n") line++;
 
         if(char === "[" || char === ","){

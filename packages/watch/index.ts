@@ -76,6 +76,7 @@ export default class Watch extends CommandInterface {
         }
     } as const;
     config = CLIParser.getCommandLineArgumentsValues(Watch.commandLineArguments);
+    
 
     async run() {
         if(!fs.existsSync(this.config.outputDir))

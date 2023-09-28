@@ -1,5 +1,5 @@
-import {dirname, resolve} from "path";
-import fs from "fs";
+import {dirname, resolve, basename} from "path";
+import fs, { existsSync, readFileSync } from "fs";
 import {build} from "esbuild";
 import {
     analyzeDynamicImport,
@@ -9,6 +9,8 @@ import {
 } from "./fileParser";
 import randStr from "@fullstacked/cli/utils/randStr";
 import {moduleExtensions, possibleJSExtensions} from "./utils";
+import stripComments from "strip-comments";
+import ts from "typescript";
 
 type BuilderOptions = {
     entrypoint: ModulePath,
@@ -108,6 +110,11 @@ async function builder(options: Omit<BuilderOptions, 'entrypoints'> & {entrypoin
         }
     }
 
+    const TSConfigFilePath = resolve(process.cwd(), "tsconfig.json");
+    const parsedTSConfig = existsSync(TSConfigFilePath)
+        ? JSON.parse(readFileSync(TSConfigFilePath).toString())
+        : {};
+
     await build({
         entryPoints: [entrypoint],
         outdir: resolve(process.cwd(), options.outdir, currentDir),
@@ -119,6 +126,13 @@ async function builder(options: Omit<BuilderOptions, 'entrypoints'> & {entrypoin
 
                 build.onLoad({ filter: /.*/ }, async ({ path }) => {
                     let contents = fs.readFileSync(path).toString();
+
+                    if(parsedTSConfig?.compilerOptions?.emitDecoratorMetadata && findDecorators(contents)){
+                        contents = ts.transpileModule(contents, {
+                            compilerOptions: parsedTSConfig.compilerOptions,
+                            fileName: basename(path),
+                        }).outputText;
+                    }
 
                     const importStatements = tokenizeImports(contents);
 
@@ -384,3 +398,11 @@ export const safeExternalModuleName = (moduleName: string) => {
         .replace(/(\/|-|\.)/g, "_")
         .replace(/@/g, "")
 }
+
+
+const theFinder = new RegExp(
+    /((?<![\(\s]\s*['"])@\w*[\w\d]\s*(?![;])[\((?=\s)])/
+  );
+  
+const findDecorators = (fileContent) =>
+    theFinder.test(stripComments(fileContent));
