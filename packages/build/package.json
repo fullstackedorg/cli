@@ -1,6 +1,6 @@
 {
   "name": "@fullstacked/build",
-  "version": "0.10.7",
+  "version": "0.10.8",
   "description": "Build your Web App source code into a ready to run bundle",
   "dependencies": {
     "@fullstacked/cli": "^0.10.11",
