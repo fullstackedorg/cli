@@ -127,7 +127,7 @@ async function builder(options: Omit<BuilderOptions, 'entrypoints'> & {entrypoin
                 build.onLoad({ filter: /.*/ }, async ({ path }) => {
                     let contents = fs.readFileSync(path).toString();
 
-                    if(parsedTSConfig?.compilerOptions?.emitDecoratorMetadata && findDecorators(contents)){
+                    if(parsedTSConfig?.compilerOptions?.emitDecoratorMetadata && (path.endsWith(".ts") || path.endsWith(".tsx")) && findDecorators(contents)){
                         contents = ts.transpileModule(contents, {
                             compilerOptions: parsedTSConfig.compilerOptions,
                             fileName: basename(path),
