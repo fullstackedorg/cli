@@ -1,11 +1,13 @@
-import { resolve } from "path";
+import {basename, resolve} from "path";
 import esbuild, {Format, Platform} from "esbuild";
-import fs from "fs";
+import fs, {existsSync, readFileSync} from "fs";
 import yaml from "js-yaml";
 import CommandInterface from "@fullstacked/cli/CommandInterface";
 import glob from "fast-glob";
 import CLIParser from "@fullstacked/cli/utils/CLIParser";
 import Info from "@fullstacked/cli/info";
+import ts from "typescript";
+import findDecorators from "@fullstacked/cli/utils/findDecorators";
 
 // Polyfill for stackblitz
 if(!global.structuredClone) {
@@ -14,12 +16,26 @@ if(!global.structuredClone) {
     }
 }
 
+const TSConfigFilePath = resolve(process.cwd(), "tsconfig.json");
+const parsedTSConfig = existsSync(TSConfigFilePath)
+    ? JSON.parse(readFileSync(TSConfigFilePath).toString())
+    : {};
+
 const dynamicLoaderPlugin = {
     name: "dynamic-loader",
     setup(build) {
         build.onLoad({ filter: /.*/ }, ({path}) => {
+            let contents: Buffer | string = fs.readFileSync(path);
+
+            if(parsedTSConfig?.compilerOptions?.emitDecoratorMetadata && (path.endsWith(".ts") || path.endsWith(".tsx")) && findDecorators(contents.toString())){
+                contents = ts.transpileModule(contents.toString(), {
+                    compilerOptions: parsedTSConfig.compilerOptions,
+                    fileName: basename(path),
+                }).outputText;
+            }
+
             return {
-                contents: fs.readFileSync(path),
+                contents,
                 loader: path.endsWith(".ts")
                     ? "ts"
                     : path.endsWith(".tsx")

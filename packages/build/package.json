@@ -1,12 +1,13 @@
 {
   "name": "@fullstacked/build",
-  "version": "0.10.6",
+  "version": "0.10.7",
   "description": "Build your Web App source code into a ready to run bundle",
   "dependencies": {
-    "@fullstacked/cli": "^0.10.10",
+    "@fullstacked/cli": "^0.10.11",
     "esbuild": "^0.14.27",
     "fast-glob": "^3.2.12",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "typescript": "^5.2.2"
   },
   "author": "cplepage",
   "license": "MIT",

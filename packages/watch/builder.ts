@@ -9,8 +9,8 @@ import {
 } from "./fileParser";
 import randStr from "@fullstacked/cli/utils/randStr";
 import {moduleExtensions, possibleJSExtensions} from "./utils";
-import stripComments from "strip-comments";
 import ts from "typescript";
+import findDecorators from "@fullstacked/cli/utils/findDecorators";
 
 type BuilderOptions = {
     entrypoint: ModulePath,
@@ -398,11 +398,3 @@ export const safeExternalModuleName = (moduleName: string) => {
         .replace(/(\/|-|\.)/g, "_")
         .replace(/@/g, "")
 }
-
-
-const theFinder = new RegExp(
-    /((?<![\(\s]\s*['"])@\w*[\w\d]\s*(?![;])[\((?=\s)])/
-  );
-  
-const findDecorators = (fileContent) =>
-    theFinder.test(stripComments(fileContent));
