@@ -27,22 +27,26 @@ function modulePathToSafeJS(modulePath: string) {
 const bundleOutName = "externals.js";
 
 export default async function(clientEntrypoint: string, serverEntrypoint: string, outdir: string) {
-    const clientBaseDir = dirname(clientEntrypoint);
+    let clientBaseDir: string;
     let clientBuild: Awaited<ReturnType<typeof Builder>>;
-    const reloadClientBuild = async () => {
-        clientBuild = await Builder({
-            entrypoint: clientEntrypoint,
-            outdir,
-            recurse: true,
-            moduleResolverWrapperFunction: "getModuleImportPath",
-            externalModules: {
-                convert: true,
-                bundle: true,
-                bundleOutName
-            }
-        });
+    let reloadClientBuild;
+    if(clientEntrypoint) {
+        clientBaseDir = dirname(clientEntrypoint);
+        reloadClientBuild = async () => {
+            clientBuild = await Builder({
+                entrypoint: clientEntrypoint,
+                outdir,
+                recurse: true,
+                moduleResolverWrapperFunction: "getModuleImportPath",
+                externalModules: {
+                    convert: true,
+                    bundle: true,
+                    bundleOutName
+                }
+            });
+        }
+        await reloadClientBuild();
     }
-    await reloadClientBuild();
 
     let serverBuild: Awaited<ReturnType<typeof Builder>>;
     const reloadServerBuild = async () => {
@@ -74,10 +78,10 @@ export default async function(clientEntrypoint: string, serverEntrypoint: string
         ws.send(JSON.stringify({
             type: "setup",
             data: {
-                tree: clientBuild.modulesFlatTree,
+                tree: clientBuild?.modulesFlatTree,
                 basePath: clientBaseDir,
                 entrypoint: clientEntrypoint + getModulePathExtension(clientEntrypoint),
-                externalModules: clientBuild.externalModules,
+                externalModules: clientBuild?.externalModules,
                 bundleOutName
             }
         }));
@@ -217,9 +221,11 @@ export default async function(clientEntrypoint: string, serverEntrypoint: string
     });
 
     const clientWatchers = new Map<string, FSWatcher>();
-    Object.keys(clientBuild.modulesFlatTree).forEach(modulePath => {
-        clientWatchers.set(modulePath, initClientWatch(modulePath));
-    });
+    if(clientBuild?.modulesFlatTree){
+        Object.keys(clientBuild.modulesFlatTree).forEach(modulePath => {
+            clientWatchers.set(modulePath, initClientWatch(modulePath));
+        });
+    }
 
     global.getModuleImportPath = (modulePath) => {
         if(serverBuild.externalModules.includes(modulePath))

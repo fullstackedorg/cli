@@ -76,14 +76,15 @@ export default class Watch extends CommandInterface {
         }
     } as const;
     config = CLIParser.getCommandLineArgumentsValues(Watch.commandLineArguments);
-    
+
 
     async run() {
         if(!fs.existsSync(this.config.outputDir))
             fs.mkdirSync(this.config.outputDir, {recursive: true})
 
         if(!this.config.dockerCompose.length || process.env.DOCKER){
-            process.env.CLIENT_DIR = resolve(this.config.outputDir, dirname(this.config.client));
+            if(this.config.client)
+                process.env.CLIENT_DIR = resolve(this.config.outputDir, dirname(this.config.client));
             process.env.PORT = process.env.DOCKER
                 ? "8000"
                 : (process.env.PORT || (await getNextAvailablePort(8000)).toString());

@@ -1,6 +1,6 @@
 {
   "name": "@fullstacked/watch",
-  "version": "0.10.20",
+  "version": "0.10.21",
   "description": "Automatically reBuild and reRun your Web App on file changes",
   "main": "index.js",
   "author": "cplepage",
