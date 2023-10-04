@@ -1,6 +1,6 @@
 {
   "name": "@fullstacked/webapp",
-  "version": "0.10.6",
+  "version": "0.10.8",
   "description": "Use FullStacked Server and Client to rapidly build a Web App",
   "author": "cplepage",
   "license": "MIT",

@@ -1,6 +1,6 @@
 class Client<ApiDefinition> {
     private cache: {[key: string]: any};
-    private recurseInProxy(method: "GET" | "POST" | "PUT" | "DELETE", useCache = false, pathComponents: string[] = []){
+    private recurseInProxy(method: "GET" | "POST" | "PUT" | "DELETE", useCache = false, arrayBuffer = false, pathComponents: string[] = []){
         return new Proxy(fetchCall.bind(this), {
             apply: (target, _, argArray) => {
                 // activate cache
@@ -22,11 +22,11 @@ class Client<ApiDefinition> {
                     return this.cache[pathComponentsAsStr][argAsStr];
                 }
 
-                return target(method, pathComponents, ...argArray);
+                return target(method, pathComponents, arrayBuffer, ...argArray);
             },
             get: (_, p) =>  {
                 pathComponents.push(p as string);
-                return this.recurseInProxy(method, useCache, pathComponents);
+                return this.recurseInProxy(method, useCache, arrayBuffer, pathComponents);
             }
         })
     }
@@ -38,13 +38,13 @@ class Client<ApiDefinition> {
         this.origin = origin;
     }
 
-    get(useCache = false){ return this.recurseInProxy("GET", useCache) as any as ApiDefinition }
-    post(){ return this.recurseInProxy("POST", false) as any as ApiDefinition }
-    put(){ return this.recurseInProxy("PUT", false) as any as ApiDefinition }
-    delete(){ return this.recurseInProxy("DELETE", false) as any as ApiDefinition }
+    get(useCache = false, arrayBuffer = false){ return this.recurseInProxy("GET", useCache, arrayBuffer) as any as ApiDefinition }
+    post(){ return this.recurseInProxy("POST", false, false) as any as ApiDefinition }
+    put(){ return this.recurseInProxy("PUT", false, false) as any as ApiDefinition }
+    delete(){ return this.recurseInProxy("DELETE", false, false) as any as ApiDefinition }
 }
 
-async function fetchCall(method, pathComponents, ...args) {
+async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
     const url = new URL(this.origin || (window.location.origin + "/rpc"));
 
     url.pathname += (url.pathname.endsWith("/") ? "" : "/") + pathComponents.join('/');
@@ -87,9 +87,11 @@ async function fetchCall(method, pathComponents, ...args) {
 
     const response = await fetch(url.toString(), requestInit);
 
-    const data = response.headers.get('Content-Type') === "application/json"
-        ? await response.json()
-        : await response.text();
+    const data = arrayBuffer
+        ? await response.arrayBuffer()
+        : response.headers.get('Content-Type') === "application/json"
+            ? await response.json()
+            : await response.text();
 
     if(response.status >= 400)
         throw new Error(data);
@@ -113,7 +115,7 @@ export default function createClient<ApiDefinition>(origin = "") {
         requestOptions: Client<ApiDefinition>['requestOptions'],
         headers: Client<ApiDefinition>['headers'],
         origin: Client<ApiDefinition>['origin'],
-        get(useCache?: boolean): AwaitAll<ApiDefinition>,
+        get(useCache?: boolean, arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
         post(): AwaitAll<ApiDefinition>,
         put(): AwaitAll<ApiDefinition>,
         delete(): AwaitAll<ApiDefinition>,

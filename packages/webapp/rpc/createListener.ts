@@ -190,7 +190,13 @@ export function createHandler(api: any){
         if (req.method === 'POST' || req.method === 'PUT') {
             return new Promise<Boolean>(resolve => {
                 readBody(req).then(body => {
-                    const args = Object.values(body);
+                    const args = Object.values(body).map(value => {
+                        // Buffer toJSON() looks like: { type: "Buffer", data: [1, 2, 3, 4] }
+                        if(typeof value === "object" && value.type === "Buffer" && value.data)
+                            return Buffer.from(value.data);
+
+                        return value
+                    });
                     const apiCall = callAPIMethod(req, res, method, ...args);
                     if(apiCall instanceof Promise)
                         apiCall.then(() => resolve(true));
