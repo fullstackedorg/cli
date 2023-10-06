@@ -705,7 +705,10 @@ export default class Deploy extends CommandInterface {
                 // check if defined a precise port
                 if(servicePort !== port) continue;
 
-                dockerCompose.services[nginxConfig.name].ports[i] = `${availablePort}:${nginxConfig.port}`;
+                // make sure we are setting the right port
+                if(nginxConfig.port.toString() === servicePort) {
+                    dockerCompose.services[nginxConfig.name].ports[i] = `${availablePort}:${nginxConfig.port}`;
+                }
             }
         });
 
