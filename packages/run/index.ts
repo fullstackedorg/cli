@@ -111,7 +111,8 @@ export default class Run extends CommandInterface {
         let nodePort;
         for(const service of services){
             const serviceObject = this.dockerCompose.recipe.services[service];
-            await maybePullDockerImage(serviceObject.image);
+            const imageParams = serviceObject.image.split(":");
+            await maybePullDockerImage(imageParams.at(0), imageParams.at(1));
             const exposedPorts = serviceObject.ports;
             if(!exposedPorts) continue;
             for (let i = 0; i < exposedPorts.length; i++) {
