@@ -44,6 +44,11 @@ export async function maybePullDockerImage(image, tag?, options = {
 }
 
 async function lastTagPushOnDockerHub(image, tag){
+    // node => library/node
+    // busybox => library/busybox
+    if(!image.includes("/"))
+        image = `library/${image}`;
+
     let lastPush;
     try{
         const dockerHubResponse = await fetch(`https://hub.docker.com/v2/repositories/${image}/tags/${tag}`);
