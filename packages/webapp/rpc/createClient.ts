@@ -1,7 +1,9 @@
+import {MultiCall} from "./MutliCall";
+
 class Client<ApiDefinition> {
     private cache: {[key: string]: any};
-    private recurseInProxy(method: "GET" | "POST" | "PUT" | "DELETE", useCache = false, arrayBuffer = false, pathComponents: string[] = []){
-        return new Proxy(fetchCall.bind(this), {
+    private recurseInProxy(target, method: "GET" | "POST" | "PUT" | "DELETE", useCache = false, arrayBuffer = false, pathComponents: string[] = []){
+        return new Proxy(target, {
             apply: (target, _, argArray) => {
                 // activate cache
                 if(useCache && !this.cache)
@@ -26,7 +28,7 @@ class Client<ApiDefinition> {
             },
             get: (_, p) =>  {
                 pathComponents.push(p as string);
-                return this.recurseInProxy(method, useCache, arrayBuffer, pathComponents);
+                return this.recurseInProxy(target, method, useCache, arrayBuffer, pathComponents);
             }
         })
     }
@@ -38,14 +40,86 @@ class Client<ApiDefinition> {
         this.origin = origin;
     }
 
-    get(useCache = false, arrayBuffer = false){ return this.recurseInProxy("GET", useCache, arrayBuffer) as any as ApiDefinition }
-    post(){ return this.recurseInProxy("POST", false, false) as any as ApiDefinition }
-    put(){ return this.recurseInProxy("PUT", false, false) as any as ApiDefinition }
-    delete(){ return this.recurseInProxy("DELETE", false, false) as any as ApiDefinition }
+    get(useCache = false, arrayBuffer = false){ return this.recurseInProxy(fetchCall.bind(this), "GET", useCache, arrayBuffer) as any as ApiDefinition }
+    post(arrayBuffer = false){ return this.recurseInProxy(fetchCall.bind(this), "POST", false, arrayBuffer) as any as ApiDefinition }
+    put(arrayBuffer = false){ return this.recurseInProxy(fetchCall.bind(this), "PUT", false, arrayBuffer) as any as ApiDefinition }
+    delete(arrayBuffer = false){ return this.recurseInProxy(fetchCall.bind(this), "DELETE", false, arrayBuffer) as any as ApiDefinition }
+
+    multi(){
+        const calls : MultiCall[]  = [];
+        return {
+            add: (arrayBuffer?: boolean) => {
+                return this.recurseInProxy((_, pathComponents, arrayBuffer, ...args) => {
+                    calls.push({
+                        pathComponents,
+                        arrayBuffer,
+                        args
+                    })
+                },null, false, arrayBuffer);
+            },
+            fetch: () => multiFetchCall.bind(this)(calls)
+        }
+    }
+}
+
+async function multiFetchCall(calls: MultiCall[]){
+    let origin = this.origin;
+
+    // default origin in browser
+    if(typeof window !== 'undefined' && !origin){
+        origin = window.location.origin + "/rpc";
+    }
+
+    if(!origin)
+        throw new Error("No origin defined");
+
+    const url = new URL(origin);
+    url.pathname += "/multi";
+
+    const requestInit: RequestInit = {
+        ...this.requestOptions,
+        method: "POST",
+        body: JSON.stringify(calls)
+    };
+
+    const headers = new Headers();
+
+    Object.keys(this.headers).forEach(headerName => {
+        headers.append(headerName, this.headers[headerName]);
+    });
+
+    headers.append("Content-Type", "application/json")
+
+    const response = await fetch(url.toString(), requestInit);
+    if(response.status >= 400){
+        let errorData = await response.text();
+        try {
+            errorData = JSON.parse(errorData);
+        }catch (e){ }
+
+        throw new Error(errorData);
+    }
+
+    const json = await response.json();
+    return json.map((data, index) => {
+        if(calls[index].arrayBuffer && data.type === "Buffer")
+            return (new Uint8Array(data.data)).buffer
+        return data;
+    });
 }
 
 async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
-    const url = new URL(this.origin || (window.location.origin + "/rpc"));
+    let origin = this.origin;
+
+    // default origin in browser
+    if(typeof window !== 'undefined' && !origin){
+        origin = window.location.origin + "/rpc";
+    }
+
+    if(!origin)
+        throw new Error("No origin defined");
+
+    const url = new URL(origin);
 
     url.pathname += (url.pathname.endsWith("/") ? "" : "/") + pathComponents.join('/');
 
@@ -93,8 +167,13 @@ async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
             ? await response.json()
             : await response.text();
 
-    if(response.status >= 400)
-        throw new Error(data);
+    if(response.status >= 400){
+        const errorData = typeof data === "object"
+            ? JSON.stringify(data)
+            : data.toString();
+
+        throw new Error(errorData);
+    }
 
     return data;
 }
@@ -110,14 +189,22 @@ type AwaitAll<T> = {
         : AwaitAll<T[K]>
 }
 
+type NoAwait<T> = {
+    [K in keyof T]: T[K] extends ((...args: any) => any) ? (...args: T[K] extends ((...args: infer P) => any) ? P : never[]) => Awaited<OnlyOnePromise<(T[K] extends ((...args: any) => any) ? ReturnType<T[K]> : any)>> : NoAwait<T[K]>;
+};
+
 export default function createClient<ApiDefinition>(origin = "") {
     return new Client<ApiDefinition>(origin) as {
         requestOptions: Client<ApiDefinition>['requestOptions'],
         headers: Client<ApiDefinition>['headers'],
         origin: Client<ApiDefinition>['origin'],
         get(useCache?: boolean, arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
-        post(): AwaitAll<ApiDefinition>,
-        put(): AwaitAll<ApiDefinition>,
-        delete(): AwaitAll<ApiDefinition>,
+        post(arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
+        put(arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
+        delete(arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
+        multi(): {
+            add(arrayBuffer?: boolean): NoAwait<ApiDefinition>
+            fetch(): Promise<any[]>;
+        }
     };
 }

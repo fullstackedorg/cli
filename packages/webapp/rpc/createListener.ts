@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import * as fastQueryString from "fast-querystring";
 import type {Listener} from "../server/index";
+import {MultiCall} from "./MutliCall";
 
 function checkMethod(method: string){
     if(this.req.method !== method)
@@ -160,6 +161,30 @@ function callAPIMethod(req, res: ServerResponse, method, ...args) {
     send(response);
 }
 
+async function multiCall(req, res, api, callsPromise: Promise<MultiCall[]>){
+    const calls = await callsPromise;
+    const methods = calls.map(({pathComponents}) => {
+        const method = pathComponents.reduce((api, key) => api ? api[key] : undefined, api);
+        return method.middleware ? method.middleware : method;
+    })
+    const promises = methods.map((method, index) => new Promise(async resolve => {
+        let response;
+        try {
+            response = method.bind({req, res})(...calls[index].args);
+            if(response instanceof Promise)
+                response = await response;
+        } catch (e) {
+            response = { error: e.message };
+        }
+
+        resolve(response);
+    }));
+    const responses = await Promise.all(promises);
+    const payload = JSON.stringify(responses, JSONCircularRemover());
+    res.writeHead(200);
+    res.end(payload);
+}
+
 export function createHandler(api: any){
     return (req, res) => {
         const urlComponents = req.url.split("?");
@@ -170,10 +195,8 @@ export function createHandler(api: any){
         // /path/to/method => [ "", "path", "to", "method" ]
         methodPath.shift();
 
-        if(req.method === "GET" && methodPath.length === 1 && methodPath.at(0) === "types"){
-            res.setHeader("application/json");
-            res.end(JSON.stringify(api));
-            return;
+        if(methodPath.length === 1 && methodPath.at(0) === "multi"){
+            return new Promise(resolve => multiCall(req, res, api, readBody(req) as Promise<MultiCall[]>).then(resolve));
         }
 
         let method = methodPath.reduce((api, key) => api ? api[key] : undefined, api);
@@ -183,9 +206,8 @@ export function createHandler(api: any){
         if(typeof method === "object" && method[""])
             method = method[""];
 
-        if (method.middleware) {
+        if (method.middleware)
             method = method.middleware;
-        }
 
         if (req.method === 'POST' || req.method === 'PUT') {
             return new Promise<Boolean>(resolve => {
