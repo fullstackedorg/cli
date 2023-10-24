@@ -168,9 +168,16 @@ async function multiCall(req, res, api, callsPromise: Promise<MultiCall[]>){
         return method.middleware ? method.middleware : method;
     })
     const promises = methods.map((method, index) => new Promise(async resolve => {
+        const args = Object.values(calls[index].args).map(value => {
+            if(typeof value === "object" && value.type === "Buffer" && value.data)
+                return Buffer.from(value.data);
+
+            return value
+        });
+
         let response;
         try {
-            response = method.bind({req, res})(...calls[index].args);
+            response = method.bind({req, res})(...args);
             if(response instanceof Promise)
                 response = await response;
         } catch (e) {
@@ -213,7 +220,7 @@ export function createHandler(api: any){
             return new Promise<Boolean>(resolve => {
                 readBody(req).then(body => {
                     const args = Object.values(body).map(value => {
-                        // Buffer toJSON() looks like: { type: "Buffer", data: [1, 2, 3, 4] }
+                        // NodeJS Buffer toJSON() looks like: { type: "Buffer", data: [1, 2, 3, 4] }
                         if(typeof value === "object" && value.type === "Buffer" && value.data)
                             return Buffer.from(value.data);
 

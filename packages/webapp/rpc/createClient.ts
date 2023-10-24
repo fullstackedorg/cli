@@ -74,7 +74,7 @@ async function multiFetchCall(calls: MultiCall[]){
         throw new Error("No origin defined");
 
     const url = new URL(origin);
-    url.pathname += "/multi";
+    url.pathname += (url.pathname.endsWith("/") ? "" : "/") + "multi";
 
     const requestInit: RequestInit = {
         ...this.requestOptions,
@@ -87,8 +87,9 @@ async function multiFetchCall(calls: MultiCall[]){
     Object.keys(this.headers).forEach(headerName => {
         headers.append(headerName, this.headers[headerName]);
     });
+    requestInit.headers = headers;
 
-    headers.append("Content-Type", "application/json")
+    headers.append("Content-Type", "application/json");
 
     const response = await fetch(url.toString(), requestInit);
     if(response.status >= 400){
