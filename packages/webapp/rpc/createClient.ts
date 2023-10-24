@@ -19,7 +19,7 @@ class Client<ApiDefinition> {
 
                     // update cache
                     if(!this.cache[pathComponentsAsStr][argAsStr] || !useCache)
-                        this.cache[pathComponentsAsStr][argAsStr] = target(method, pathComponents, ...argArray);
+                        this.cache[pathComponentsAsStr][argAsStr] = target(method, pathComponents, arrayBuffer, ...argArray);
 
                     return this.cache[pathComponentsAsStr][argAsStr];
                 }
