@@ -22,7 +22,7 @@ export default class Watch extends CommandInterface {
                 command: [
                     "/bin/sh",
                     "-c",
-                    `DOCKER=1 npx fullstacked watch`
+                    `DOCKER=1 npx fsc watch`
                 ]
             }
         }
