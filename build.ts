@@ -31,6 +31,7 @@ const toBuild = [
     "./packages/create/cli.ts",
     "./packages/create/create.ts",
     "./packages/share/index.ts",
+    "./packages/sync/index.ts",
     "./packages/webapp/server/index.ts",
     "./packages/webapp/server/HTML.ts",
     "./packages/webapp/client/react/useAPI.ts",
@@ -47,6 +48,10 @@ const toBuild = [
 await buildRecursively.default(toBuild);
 
 [
+    {
+        file: "./packages/sync/rsync/src/RsyncErreur.ts",
+        platform: "node"
+    },
     {
         file: "./packages/deploy/nginx/getAvailablePorts.ts",
         platform: "node"

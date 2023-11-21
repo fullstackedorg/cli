@@ -14,3 +14,4 @@ version.ts
 *.tgz
 test
 package-lock.json
+packages/sync/rsync

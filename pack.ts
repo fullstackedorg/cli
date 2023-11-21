@@ -43,6 +43,7 @@ export const watchPackage  = installPackageThenPack("packages/watch"   , fullsta
 export const deployPackage = installPackageThenPack("packages/deploy"  , fullstackedPackage);
 export const backupPackage = installPackageThenPack("packages/backup"  , fullstackedPackage);
 export const sharePackage  = installPackageThenPack("packages/share"   , fullstackedPackage);
+export const syncPackage   = installPackageThenPack("packages/sync"    , fullstackedPackage);
 export const webappPackage = installPackageThenPack("packages/webapp"  , fullstackedPackage);
 export const createPackage = installPackageThenPack("packages/create"  , fullstackedPackage);
 
