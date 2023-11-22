@@ -277,9 +277,42 @@ export class RsyncHTTP2Client {
 
     async pull(itemPath: string) {
         const session = connect(this.endpoint);
-        session.on('error', (err) => console.error(err))
+        session.on('error', (err) => console.error(err));
 
         const items = await this.scanItemOnRemote(session, itemPath);
+
+        const mainItemPathIsDirectory = items[0][1];
+        let onFinish;
+        if(mainItemPathIsDirectory){
+            const mainLocalPath = path.resolve(this.baseDir, itemPath);
+            const { version, ...previousSnapshot } = this.getSavedSnapshotAndVersion(mainLocalPath);
+            const fileItemsPaths = items
+                .filter(([_, isDir]) => !isDir)
+                .map(([itemPath]) => itemPath);
+
+            if (version !== null) {
+                const snapshot = await createSnapshot(this.baseDir, fileItemsPaths);
+
+                const {
+                    diffs,
+                    missingInA,
+                    missingInB
+                } = getSnapshotDiffs(previousSnapshot, snapshot);
+
+                if(diffs.length){
+                    console.log(`Can't pull. Changes in [${diffs.join(", ")}]`);
+                    session.close();
+                    return;
+                }
+            }
+
+            onFinish = async () => {
+                const remoteVersion = await this.getVersionOnRemote(session, itemPath);
+                this.saveSnapshotAndVersion(mainLocalPath, await createSnapshot(this.baseDir, fileItemsPaths), remoteVersion);
+            }
+        }
+
+
         const itemCount = items.length;
 
         const streamPull = async (stream: ClientHttp2Stream, streamIndex: number) => {
@@ -403,6 +436,9 @@ export class RsyncHTTP2Client {
 
         const streamsCount = Math.min(items.length, this.maximumConcurrentStreams);
         await Promise.all(new Array(streamsCount).fill(null).map(streamPull));
+
+        if(onFinish)
+            await onFinish();
 
         log("Pull done");
         session.close();
