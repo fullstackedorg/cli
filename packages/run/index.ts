@@ -103,7 +103,7 @@ export default class Run extends CommandInterface {
     async start(){
         const services = Object.keys(this.dockerCompose.recipe.services);
 
-        if(!this.config.forceDocker && services.length === 1){
+        if(!this.config.forceDocker && services.length === 1 && services.at(0) === "node"){
             return this.startNative();
         }
 
