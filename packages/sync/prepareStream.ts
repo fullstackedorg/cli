@@ -3,6 +3,7 @@ import { adler32 } from "./rsync/src/utils/adler32";
 import { md5 } from "./rsync/src/utils/md5";
 import { DEFAULT_BLOCK_SIZE } from "./rsync/src/utils/options";
 import fs from "fs";
+import { numberToBufferOfLength } from "./utils";
 
 const processBlock = (data: Uint8Array) => {
     const checksum = new Uint8Array(4 + 16);
@@ -54,15 +55,4 @@ export function prepareStream(filePath: string, outStream: Writable, cb: () => v
 
     readStream.on("data", onData);
     readStream.on("end", onEnd);
-}
-
-export function numberToBufferOfLength(num: number, byteLength: number){
-    let uint8Arr = new Uint8Array(byteLength);
-
-    for (let i = 0; i < byteLength; i++) {
-        uint8Arr[i] = num % 256;
-        num = Math.floor(num / 256);
-    }
-
-    return uint8Arr;
 }

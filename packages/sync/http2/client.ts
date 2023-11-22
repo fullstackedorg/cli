@@ -1,12 +1,12 @@
 import fs from "fs";
-import { ClientHttp2Stream, connect } from "http2";
+import { ClientHttp2Session, ClientHttp2Stream, connect } from "http2";
 import path from "path";
 import { apply } from "../rsync/src/apply";
-import { scan } from "../scan";
 import { Writable } from "stream";
 import { diff } from "../rsync/src/diff";
-import { numberToBufferOfLength, prepareStream } from "../prepareStream";
-import { BLOCK_SIZE_BYTES, CHUNK_SIZE, HEADER_SIZE } from "../constants";
+import { prepareStream } from "../prepareStream";
+import { BLOCK_SIZE_BYTES, CHUNK_SIZE, HEADER_SIZE, syncFileName } from "../constants";
+import { Snapshot, createSnapshot, getSnapshotDiffs, numberToBufferOfLength, scan } from "../utils";
 
 const log = (...args) => {
     console.log("[CLIENT]\n", ...args);
@@ -21,41 +21,131 @@ export class RsyncHTTP2Client {
         this.endpoint = endpoint;
     }
 
-    private scanItemOnRemote(itemPath: string): Promise<ReturnType<typeof scan>> {
-        const session = connect(this.endpoint);
+    private getSavedSnapshotAndVersion(itemLocalPath: string){
+        const syncFile = path.resolve(itemLocalPath, syncFileName);
 
-        session.on('error', (err) => console.error(err))
+        if(!fs.existsSync(syncFile)){
+            return { version: null };
+        }
 
-        const req = session.request({
+        return JSON.parse(fs.readFileSync(syncFile).toString())
+    }
+
+    private saveSnapshotAndVersion(itemLocalPath: string, snapshot: Snapshot, version: number) {
+        const syncFile = path.resolve(itemLocalPath, syncFileName);
+        fs.writeFileSync(syncFile, JSON.stringify({...snapshot, version: version}))
+    }
+
+    private getVersionOnRemote(session: ClientHttp2Session, itemPath: string): Promise<number>{
+        const stream = session.request({
+            ':path': '/version',
+            ':method': 'POST'
+        });
+        stream.write(itemPath)
+        stream.end();
+
+        stream.setEncoding('utf8');
+        return new Promise(resolve => {
+            let data = ''
+            stream.on('data', (chunk) => { data += chunk })
+            stream.on('end', () => {
+                resolve(JSON.parse(data).version);
+            });
+        })
+    }
+
+    private bumpVersionOnRemote(session: ClientHttp2Session, itemPath: string, version: number): Promise<number> {
+        const stream = session.request({
+            ':path': '/bump',
+            ':method': 'POST'
+        });
+        stream.write(JSON.stringify({
+            itemPath,
+            version
+        }))
+        stream.end();
+
+        stream.setEncoding('utf8');
+        return new Promise(resolve => {
+            let data = ''
+            stream.on('data', (chunk) => { data += chunk })
+            stream.on('end', () => {
+                resolve(JSON.parse(data).version);
+            });
+        })
+    }
+
+    private scanItemOnRemote(session: ClientHttp2Session, itemPath: string): Promise<ReturnType<typeof scan>> {
+        const stream = session.request({
             ':path': '/scan',
             ':method': 'POST'
         });
-        req.write(itemPath)
-        req.end();
+        stream.write(itemPath)
+        stream.end();
 
-        req.setEncoding('utf8')
+        stream.setEncoding('utf8')
         return new Promise(resolve => {
             let data = ''
-            req.on('data', (chunk) => { data += chunk })
-            req.on('end', () => {
-                resolve(JSON.parse(data))
-                session.close();
+            stream.on('data', (chunk) => { data += chunk })
+            stream.on('end', () => {
+                resolve(JSON.parse(data));
             });
         })
     }
 
     async push(itemPath: string) {
+        const session = connect(this.endpoint);
+        session.on('error', (err) => console.error(err));
+
         const items = scan(this.baseDir, itemPath);
+
+        if(!items.length) return;
+
+        const mainItemPathIsDirectory = items[0][1];
+        let onFinish;
+        if(mainItemPathIsDirectory){
+            const mainLocalPath = path.resolve(this.baseDir, itemPath);
+            const fileItemsPaths = items
+                .filter(([_, isDir]) => !isDir)
+                .map(([itemPath]) => itemPath);
+
+            const snapshot = await createSnapshot(this.baseDir, fileItemsPaths);
+            const { version, ...previousSnapshot } = this.getSavedSnapshotAndVersion(mainLocalPath);
+
+            const remoteVersion = await this.getVersionOnRemote(session, itemPath);
+
+            const {
+                diffs,
+                missingInA,
+                missingInB
+            } = getSnapshotDiffs(previousSnapshot, snapshot);
+            if(!diffs.length && !missingInA.length && !missingInB.length && remoteVersion !== null){
+                console.log("No changes, no push needed");
+                session.close();
+                return;
+            }
+
+            if(remoteVersion !== version){
+                console.log("versions mismatches");
+                session.close();
+                return;
+            }
+
+            onFinish = async () => {
+                const newVersion = Math.max((version || 0) + 1, (remoteVersion || 0) + 1);
+                const bumpedVersion = await this.bumpVersionOnRemote(session, itemPath, newVersion);
+                this.saveSnapshotAndVersion(mainLocalPath, snapshot, bumpedVersion);
+            }
+        }
 
         // this map allows us to check if item exists on remote
         // and make sure there is no directory <-> file confusion
         const remoteItems = new Map<string, boolean>();
-        (await this.scanItemOnRemote(itemPath)).forEach(([itemPath, isDirectory]) => {
+        (await this.scanItemOnRemote(session, itemPath)).forEach(([itemPath, isDirectory]) => {
             remoteItems.set(itemPath, isDirectory);
         });
 
         const itemCount = items.length;
-        const session = connect(this.endpoint);
 
         const streamPush = async (stream: ClientHttp2Stream, streamIndex: number) => new Promise(async resolve => {
             const item = items.shift();
@@ -178,14 +268,19 @@ export class RsyncHTTP2Client {
         const streamsCount = Math.min(items.length, this.maximumConcurrentStreams);
         await Promise.all(new Array(streamsCount).fill(null).map(streamPush));
 
+        if(onFinish)
+            await onFinish();
+
         log("Push done");
         session.close();
     }
 
     async pull(itemPath: string) {
-        const items = await this.scanItemOnRemote(itemPath);
-        const itemCount = items.length;
         const session = connect(this.endpoint);
+        session.on('error', (err) => console.error(err))
+
+        const items = await this.scanItemOnRemote(session, itemPath);
+        const itemCount = items.length;
 
         const streamPull = async (stream: ClientHttp2Stream, streamIndex: number) => {
             const item = items.shift();

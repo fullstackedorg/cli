@@ -15,5 +15,9 @@
             "@fullstacked/deploy/*": ["./packages/deploy/*"]
         }
     },
-    "exclude": ["packages/gui", "packages/sync/rsync"]
+    "exclude": [
+        "packages/gui", 
+        "packages/sync/rsync",
+        "test"
+    ]
 }

@@ -1,12 +1,12 @@
-import fs from "fs";
+import fs, { read } from "fs";
 import http2, { ServerHttp2Stream } from "http2";
-import { numberToBufferOfLength, prepareStream } from "../prepareStream";
+import { prepareStream } from "../prepareStream";
 import { diff } from "../rsync/src/diff";
 import { Writable } from "stream";
-import { BLOCK_SIZE_BYTES, CHUNK_SIZE, HEADER_SIZE } from "../constants";
-import { scan } from "../scan";
+import { BLOCK_SIZE_BYTES, CHUNK_SIZE, HEADER_SIZE, syncFileName } from "../constants";
 import path from "path";
 import { apply } from "../rsync/src/apply";
+import { numberToBufferOfLength, scan } from "../utils";
 
 const log = (...args) => {
     console.log("[SERVER]\n", ...args);
@@ -15,6 +15,10 @@ const log = (...args) => {
 export class RsyncHTTP2Server {
     port: number = 8000;
     baseDir: string = "";
+    ssl: {
+        cert: string | Buffer,
+        key: string | Buffer,
+    };
 
     pull(stream: ServerHttp2Stream) {
         return new Promise(resolve => {
@@ -313,8 +317,11 @@ export class RsyncHTTP2Server {
 
                         // we'll send \x00 \x00 when finished
                         if (itemPathLength === 0) {
-                            stream.close();
-                            stream.end();
+                            stream.close(http2.constants.NGHTTP2_NO_ERROR, () => stream.end());
+
+
+
+
                             return;
                         }
 
@@ -334,7 +341,9 @@ export class RsyncHTTP2Server {
     }
 
     start() {
-        const server = http2.createServer();
+        const server = this.ssl 
+            ? http2.createSecureServer(this.ssl)
+            : http2.createServer();
 
         server.on('error', (err) => console.error(err))
 
@@ -349,6 +358,20 @@ export class RsyncHTTP2Server {
                 const itemPath = await readBody(stream);
                 const itemScan = scan(this.baseDir, itemPath);
                 stream.write(JSON.stringify(itemScan));
+            }
+            else if (pathname === "/version"){
+                const syncFile = path.resolve(this.baseDir, await readBody(stream), syncFileName);
+                const version = fs.existsSync(syncFile)
+                    ? JSON.parse(fs.readFileSync(syncFile).toString()).version
+                    : null;
+                stream.write(JSON.stringify({version}));
+            }
+            else if (pathname === "/bump"){
+                const {version, itemPath} = JSON.parse(await readBody(stream));
+                const syncFile = path.resolve(this.baseDir, itemPath, syncFileName);
+                const stringified = JSON.stringify({version});
+                fs.writeFileSync(syncFile, stringified);
+                stream.write(stringified);
             }
             else if (pathname === "/pull") {
                 await this.pull(stream);

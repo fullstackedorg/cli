@@ -7,3 +7,5 @@ export const ADLER_32_BYTES = 4;
 export const MD5_BYTES = 16;
 
 export const CHUNK_SIZE = ADLER_32_BYTES + MD5_BYTES;
+
+export const syncFileName = ".fullstacked-sync";

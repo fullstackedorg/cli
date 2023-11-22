@@ -1,2 +1,4 @@
 rsync/**/*
 !rsync/src/**/*
+
+*.tgz

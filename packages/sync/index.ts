@@ -2,6 +2,7 @@ import CommandInterface from "@fullstacked/cli/CommandInterface";
 import CLIParser from "@fullstacked/cli/utils/CLIParser";
 import { RsyncHTTP2Server } from "./http2/server";
 import { RsyncHTTP2Client } from "./http2/client";
+import fs from "fs";
 
 export default class Sync extends CommandInterface {
     static commandLineArguments = {
@@ -65,6 +66,14 @@ export default class Sync extends CommandInterface {
             const server = new RsyncHTTP2Server();
             server.baseDir = this.config.directory;
             server.port = this.config.serverPort;
+
+            if(this.config.serverCertSSL && this.config.serverKeySSL){
+                server.ssl = {
+                    cert: fs.readFileSync(this.config.serverCertSSL),
+                    key: fs.readFileSync(this.config.serverKeySSL)
+                }
+            }
+
             server.start();
             return;
         }

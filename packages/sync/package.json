@@ -1,18 +1,19 @@
 {
-    "name": "@fullstacked/sync",
-    "version": "0.10.0",
-    "description": "Sync directories and files with a remote server",
-    "main": "index.js",
-    "author": "cplepage",
-    "license": "MIT",
-    "type": "module",
-    "dependencies": {
-        "@fullstacked/cli": "file:../../fullstacked-cli-0.10.14.tgz"
-    },
-    "exports": {
-        ".": "./index.js"
-    },
-    "devDependencies": {
-        "@dldc/erreur": "^6.0.0"
-    }
+  "name": "@fullstacked/sync",
+  "version": "0.10.0-alpha.1",
+  "description": "Sync directories and files with a remote server",
+  "main": "index.js",
+  "author": "cplepage",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@fullstacked/cli": "file:../../fullstacked-cli-0.10.15.tgz",
+    "ignore": "^5.3.0"
+  },
+  "exports": {
+    ".": "./index.js"
+  },
+  "devDependencies": {
+    "@dldc/erreur": "^6.0.0"
+  }
 }
