@@ -58,5 +58,6 @@ if(help){
 if(!commands.find(com => com.name === command))
     throw Error(`Unknown command [${command}]`);
 
-const commandModule = await import(`./${command}.js`);
+const commandModuleFile = `./${command}.js`;
+const commandModule = await import(commandModuleFile);
 await commandModule.default();
