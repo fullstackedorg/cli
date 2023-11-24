@@ -3,7 +3,7 @@ import http2, { ServerHttp2Stream } from "http2";
 import { prepareStream } from "../prepareStream";
 import { diff } from "../rsync/src/diff";
 import { Writable } from "stream";
-import { BLOCK_SIZE_BYTES, CHUNK_SIZE, HEADER_SIZE, syncFileName } from "../constants";
+import { BLOCK_SIZE_BYTES, CHUNK_SIZE, HEADER_SIZE, Status, syncFileName } from "../constants";
 import path from "path";
 import { apply } from "../rsync/src/apply";
 import { numberToBufferOfLength, scan } from "../utils";
@@ -340,7 +340,7 @@ export class RsyncHTTP2Server {
         })
     }
 
-    start() {
+    start(): Status {
         const server = this.ssl 
             ? http2.createSecureServer(this.ssl)
             : http2.createServer();
@@ -379,13 +379,17 @@ export class RsyncHTTP2Server {
             else if (pathname === "/push") {
                 await this.push(stream);
             }
-
-            log("Stream end");
+            
             stream.end();
         })
 
 
         server.listen(this.port);
+
+        return {
+            status: "success",
+            message: `Sync Server listenning on port ${this.port}`
+        }
     }
 }
 

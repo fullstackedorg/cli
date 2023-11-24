@@ -5,7 +5,7 @@ import { apply } from "../rsync/src/apply";
 import { Writable } from "stream";
 import { diff } from "../rsync/src/diff";
 import { prepareStream } from "../prepareStream";
-import { BLOCK_SIZE_BYTES, CHUNK_SIZE, HEADER_SIZE, syncFileName } from "../constants";
+import { BLOCK_SIZE_BYTES, CHUNK_SIZE, HEADER_SIZE, ProgressInfo, Status, syncFileName } from "../constants";
 import { Snapshot, createSnapshot, getSnapshotDiffs, numberToBufferOfLength, scan } from "../utils";
 
 const log = (...args) => {
@@ -93,7 +93,7 @@ export class RsyncHTTP2Client {
         })
     }
 
-    async push(itemPath: string) {
+    async push(itemPath: string, progress?:(info: ProgressInfo) => void): Promise<Status> {
         const session = connect(this.endpoint);
         session.on('error', (err) => console.error(err));
 
@@ -120,15 +120,19 @@ export class RsyncHTTP2Client {
                 missingInB
             } = getSnapshotDiffs(previousSnapshot, snapshot);
             if(!diffs.length && !missingInA.length && !missingInB.length && remoteVersion !== null){
-                console.log("No changes, no push needed");
                 session.close();
-                return;
+                return {
+                    status: "none",
+                    message: "No changes. No push needed."
+                }
             }
 
-            if(remoteVersion !== version){
-                console.log("versions mismatches");
+            if(remoteVersion !== version) {
                 session.close();
-                return;
+                return {
+                    status: "error",
+                    message: `Version Mismatch. Local version [${version}], Remote version [${remoteVersion}]. Pull and retry to push.`
+                }
             }
 
             onFinish = async () => {
@@ -145,12 +149,17 @@ export class RsyncHTTP2Client {
             remoteItems.set(itemPath, isDirectory);
         });
 
-        const itemCount = items.length;
+        const itemsCount = items.length; 
+        const progressInfo: ProgressInfo = {
+            items: {
+                completed: 0,
+                total: itemsCount
+            },
+            streams: {}
+        }
 
         const streamPush = async (stream: ClientHttp2Stream, streamIndex: number) => new Promise(async resolve => {
             const item = items.shift();
-
-            log(itemCount - items.length, itemCount)
 
             // end the stream
             if (!item) {
@@ -166,11 +175,23 @@ export class RsyncHTTP2Client {
                     ':method': 'POST'
                 });
 
-                stream.on("end", resolve)
+                stream.on("end", resolve);
             }
 
             const itemPath = item[0];
             const isDirectory = item[1];
+
+            progressInfo.items.completed = itemsCount - items.length;
+            const updateStreamProgress = (transfered, total) => {
+                progressInfo.streams[streamIndex] = {
+                    itemPath,
+                    transfered,
+                    total,
+                }
+                if(progress)
+                    progress(progressInfo);
+            }
+            updateStreamProgress(0, 0);
 
             const localPath = path.resolve(this.baseDir, itemPath);
 
@@ -208,6 +229,8 @@ export class RsyncHTTP2Client {
                         checksum.set(chunk, receivedData);
                         receivedData += chunk.byteLength;
 
+                        updateStreamProgress(receivedData, size);
+
                         if (receivedData === size) {
                             stream.off("data", receiveChecksum);
                             const patches = diff(fs.readFileSync(localPath), checksum);
@@ -244,14 +267,8 @@ export class RsyncHTTP2Client {
                             stream.write(chunk);
 
                             sentBytes += chunk.byteLength;
-
-                            if (itemPath.endsWith("tsserver.js"))
-                                log(sentBytes);
-
-                            // 5 mb
-                            if (size >= 5 * 1024 * 1024) {
-                                console.log(itemPath, (sentBytes / size * 100).toFixed(2) + "%");
-                            }
+                            
+                            updateStreamProgress(sentBytes, size);
 
                             next();
                         }
@@ -271,11 +288,15 @@ export class RsyncHTTP2Client {
         if(onFinish)
             await onFinish();
 
-        log("Push done");
         session.close();
+
+        return {
+            status: "success",
+            message: "Push done."
+        }
     }
 
-    async pull(itemPath: string) {
+    async pull(itemPath: string, progress?:(info: ProgressInfo) => void): Promise<Status> {
         const session = connect(this.endpoint);
         session.on('error', (err) => console.error(err));
 
@@ -300,9 +321,11 @@ export class RsyncHTTP2Client {
                 } = getSnapshotDiffs(previousSnapshot, snapshot);
 
                 if(diffs.length){
-                    console.log(`Can't pull. Changes in [${diffs.join(", ")}]`);
                     session.close();
-                    return;
+                    return {
+                        status: "error",
+                        message: `Can't pull. Changes in [${diffs.join(", ")}]`
+                    };
                 }
             }
 
@@ -313,12 +336,17 @@ export class RsyncHTTP2Client {
         }
 
 
-        const itemCount = items.length;
+        const itemsCount = items.length; 
+        const progressInfo: ProgressInfo = {
+            items: {
+                completed: 0,
+                total: itemsCount
+            },
+            streams: {}
+        }
 
         const streamPull = async (stream: ClientHttp2Stream, streamIndex: number) => {
             const item = items.shift();
-
-            log(itemCount - items.length, itemCount)
 
             // end the stream
             if (!item) {
@@ -333,6 +361,18 @@ export class RsyncHTTP2Client {
 
             const itemPath = item[0];
             const isDirectory = item[1];
+
+            progressInfo.items.completed = itemsCount - items.length;
+            const updateStreamProgress = (transfered, total) => {
+                progressInfo.streams[streamIndex] = {
+                    itemPath,
+                    transfered,
+                    total,
+                }
+                if(progress)
+                    progress(progressInfo);
+            }
+            updateStreamProgress(0, 0);
 
             // the item is a directory, just create it
             // mkdir -p
@@ -371,10 +411,7 @@ export class RsyncHTTP2Client {
                         writeStream.write(chunk);
                         written += chunk.byteLength;
 
-                        // 5 mb
-                        if (size >= 5 * 1024 * 1024) {
-                            console.log(itemPath, (written / size * 100).toFixed(2) + "%");
-                        }
+                        updateStreamProgress(written, size);
 
                         if (written === size) {
                             stream.off("data", writeToFile);
@@ -412,6 +449,8 @@ export class RsyncHTTP2Client {
                         patches.set(chunk, receivedData);
                         receivedData += chunk.byteLength;
 
+                        updateStreamProgress(receivedData, size);
+
                         if (receivedData === size) {
                             stream.off("data", receivePatches);
                             try {
@@ -440,7 +479,11 @@ export class RsyncHTTP2Client {
         if(onFinish)
             await onFinish();
 
-        log("Pull done");
         session.close();
+
+        return {
+            status: "success",
+            message: "Pull done."
+        }
     }
 }

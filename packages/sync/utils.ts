@@ -4,6 +4,8 @@ import ignore, {Ignore} from "ignore";
 import { syncFileName } from "./constants";
 
 export const scan = (baseDir: string, itemPath: string, items: [string, boolean][] = []) => {
+    if(itemPath.endsWith(syncFileName)) return;
+    
     const localPath = path.resolve(baseDir, itemPath);
     if (!fs.existsSync(localPath))
         return items;

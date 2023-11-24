@@ -9,3 +9,22 @@ export const MD5_BYTES = 16;
 export const CHUNK_SIZE = ADLER_32_BYTES + MD5_BYTES;
 
 export const syncFileName = ".fullstacked-sync";
+
+export type Status = {
+    status: "success" | "none" | "error",
+    message?: string
+}
+
+export type ProgressInfo = {
+    items: {
+        completed: number,
+        total: number
+    },
+    streams: {
+        [stream: string]: {
+            itemPath: string,
+            transfered: number,
+            total: number
+        }
+    }
+}

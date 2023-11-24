@@ -3,6 +3,8 @@ import CLIParser from "@fullstacked/cli/utils/CLIParser";
 import { RsyncHTTP2Server } from "./http2/server";
 import { RsyncHTTP2Client } from "./http2/client";
 import fs from "fs";
+import { ProgressInfo, Status } from "./constants";
+import prettyBytes from 'pretty-bytes';
 
 export default class Sync extends CommandInterface {
     static commandLineArguments = {
@@ -19,18 +21,28 @@ export default class Sync extends CommandInterface {
             defaultDescription: "current directory",
             default: process.cwd()
         },
+        filter: {
+            type: "string[]",
+            description: "File to use to filter out files to sync",
+            defaultDescription: ".gitignore",
+            default: [".gitignore"] as string[]
+        },
+        exclude: {
+            type: "string[]",
+            description: "Items to skip"
+        },
         maxStream: {
             type: "number",
             description: "Maximum concurrent streams",
             defaultDescription: "5",
             default: 5
         },
-        encryptionKey: {
-            short: "e",
-            type: "string",
-            description: "Add an encryption key to encrypt before push and decrypt after pull",
-            default: ""
-        },
+        // encryptionKey: {
+        //     short: "e",
+        //     type: "string",
+        //     description: "Add an encryption key to encrypt before push and decrypt after pull",
+        //     default: ""
+        // },
         pull: {
             type: "boolean",
             description: "Push files to remote server",
@@ -61,7 +73,7 @@ export default class Sync extends CommandInterface {
     config = CLIParser.getCommandLineArgumentsValues(Sync.commandLineArguments);
 
 
-    async run(): Promise<void> {
+    async run(progress?:(info: ProgressInfo) => void): Promise<Status> {
         if(this.config.server){
             const server = new RsyncHTTP2Server();
             server.baseDir = this.config.directory;
@@ -74,22 +86,73 @@ export default class Sync extends CommandInterface {
                 }
             }
 
-            server.start();
-            return;
+            return server.start();
         }
 
         const client = new RsyncHTTP2Client(this.config.endpoint);
-        client.maximumConcurrentStreams = 5;
+        client.maximumConcurrentStreams = this.config.maxStream;
         client.baseDir = this.config.directory;
         if(this.config.pull){
-            await client.pull(".")
+            return client.pull(".", progress)
         } else {
-            await client.push(".")
+            return client.push(".", progress)
         }
     }
 
-    runCLI(): void {
-        this.run();
+    async runCLI() {
+        let logging: string[];
+
+        const status = await this.run((progress) => {
+                
+            process.stdout.clearLine(0);
+            process.stdout.cursorTo(0);
+
+            if(logging?.length) {
+                for(let i = 0; i < logging.length - 1; i++){
+                    process.stdout.moveCursor(0, -1);
+                    process.stdout.clearLine(0);
+                    process.stdout.cursorTo(0);
+                }
+            }
+
+
+            logging = [];
+            if(progress.items){
+                logging.push(`Item Completed: ${progress.items.completed}/${progress.items.total}`);
+            }
+
+            if(progress.streams){
+                const cols = process.stdout.columns;
+
+                Object.keys(progress.streams).forEach(stream => {
+                    const data = progress.streams[stream];
+                    const percent = data.transfered / data.total * 100;
+
+                    if(isNaN(percent)) return;
+
+                    let line = "[" + stream + "] " + 
+                        (data.transfered/data.total * 100).toFixed(2) + "%" + 
+                        ` (${prettyBytes(data.total)}) `;
+
+                    let itemPath = data.itemPath;
+                    if(itemPath.length > cols - line.length - 3)
+                        itemPath = "..." + itemPath.slice(0 - cols + line.length + 3)
+
+                    logging.push(line + itemPath);
+                })
+            }
+
+            process.stdout.write(logging.join("\n"));
+        });
+
+        process.stdout.write("\n");
+
+
+        if(status.status === "error")
+            throw Error(status.message);
+
+        if(status.message)
+            console.log(status.message);
     }
     
 }
