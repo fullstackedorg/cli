@@ -7,7 +7,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@fullstacked/cli": "file:../../fullstacked-cli-0.10.15.tgz",
+    "@fullstacked/cli": "^0.10.15",
     "ignore": "^5.3.0",
     "pretty-bytes": "^6.1.1"
   },

@@ -356,7 +356,7 @@ export class RsyncHTTP2Server {
 
             if (pathname === "/scan") {
                 const itemPath = await readBody(stream);
-                const itemScan = scan(this.baseDir, itemPath);
+                const itemScan = scan(this.baseDir, itemPath, null);
                 stream.write(JSON.stringify(itemScan));
             }
             else if (pathname === "/version"){
@@ -379,7 +379,7 @@ export class RsyncHTTP2Server {
             else if (pathname === "/push") {
                 await this.push(stream);
             }
-            
+
             stream.end();
         })
 

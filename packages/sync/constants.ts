@@ -13,6 +13,9 @@ export const syncFileName = ".fullstacked-sync";
 export type Status = {
     status: "success" | "none" | "error",
     message?: string
+} | {
+    status: "conflicts",
+    items?: string[]
 }
 
 export type ProgressInfo = {

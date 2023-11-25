@@ -21,7 +21,7 @@ export default class Sync extends CommandInterface {
             defaultDescription: "current directory",
             default: process.cwd()
         },
-        filter: {
+        filters: {
             type: "string[]",
             description: "File to use to filter out files to sync",
             defaultDescription: ".gitignore",
@@ -37,6 +37,13 @@ export default class Sync extends CommandInterface {
             defaultDescription: "5",
             default: 5
         },
+        force: {
+            short: "f",
+            type: "boolean",
+            description: "Force operation even if there are conflicts or version mismatch",
+            defaultDescription: "false",
+            default: false
+        },
         // encryptionKey: {
         //     short: "e",
         //     type: "string",
@@ -45,7 +52,7 @@ export default class Sync extends CommandInterface {
         // },
         pull: {
             type: "boolean",
-            description: "Push files to remote server",
+            description: "Pull files from remote server",
             defaultDescription: "Will push if no --pull flag",
             default: false
         },
@@ -93,9 +100,17 @@ export default class Sync extends CommandInterface {
         client.maximumConcurrentStreams = this.config.maxStream;
         client.baseDir = this.config.directory;
         if(this.config.pull){
-            return client.pull(".", progress)
+            return client.pull(".", {
+                progress,
+                exclude: this.config.exclude?.map(item => item.trim()),
+                force: this.config.force
+            })
         } else {
-            return client.push(".", progress)
+            return client.push(".", {
+                progress,
+                filters: this.config.filters?.map(filter => filter.trim()),
+                force: this.config.force
+            })
         }
     }
 
@@ -114,7 +129,6 @@ export default class Sync extends CommandInterface {
                     process.stdout.cursorTo(0);
                 }
             }
-
 
             logging = [];
             if(progress.items){
@@ -147,11 +161,11 @@ export default class Sync extends CommandInterface {
 
         process.stdout.write("\n");
 
-
         if(status.status === "error")
             throw Error(status.message);
-
-        if(status.message)
+        else if(status.status === "conflicts")
+            console.log(`Can't pull. Changes in [${status.items.join(" ")}]`)
+        else
             console.log(status.message);
     }
     

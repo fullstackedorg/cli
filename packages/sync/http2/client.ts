@@ -8,8 +8,17 @@ import { prepareStream } from "../prepareStream";
 import { BLOCK_SIZE_BYTES, CHUNK_SIZE, HEADER_SIZE, ProgressInfo, Status, syncFileName } from "../constants";
 import { Snapshot, createSnapshot, getSnapshotDiffs, numberToBufferOfLength, scan } from "../utils";
 
-const log = (...args) => {
-    console.log("[CLIENT]\n", ...args);
+
+type PushOptions = {
+    progress?(info: ProgressInfo): void,
+    force?: boolean,
+    filters?: string[]
+}
+
+type PullOptions = {
+    progress?(info: ProgressInfo): void,
+    force?: boolean,
+    exclude?: string[]
 }
 
 export class RsyncHTTP2Client {
@@ -93,11 +102,13 @@ export class RsyncHTTP2Client {
         })
     }
 
-    async push(itemPath: string, progress?:(info: ProgressInfo) => void): Promise<Status> {
+    async push(itemPath: string, options: PushOptions): Promise<Status> {
         const session = connect(this.endpoint);
-        session.on('error', (err) => console.error(err));
+        session.on('error', (err) => {
+            throw err;
+        });
 
-        const items = scan(this.baseDir, itemPath);
+        const items = scan(this.baseDir, itemPath, options?.filters);
 
         if(!items.length) return;
 
@@ -127,7 +138,7 @@ export class RsyncHTTP2Client {
                 }
             }
 
-            if(remoteVersion !== version) {
+            if(remoteVersion !== null && remoteVersion !== version) {
                 session.close();
                 return {
                     status: "error",
@@ -158,7 +169,7 @@ export class RsyncHTTP2Client {
             streams: {}
         }
 
-        const streamPush = async (stream: ClientHttp2Stream, streamIndex: number) => new Promise(async resolve => {
+        const streamPush = async (stream: ClientHttp2Stream, streamIndex: number) => new Promise<void>(async resolve => {
             const item = items.shift();
 
             // end the stream
@@ -175,22 +186,30 @@ export class RsyncHTTP2Client {
                     ':method': 'POST'
                 });
 
-                stream.on("end", resolve);
+                stream.on("end", () => {
+                    delete progressInfo.streams[streamIndex];
+                    if(options?.progress)
+                        options.progress(progressInfo);
+
+                    resolve()
+                });
             }
 
             const itemPath = item[0];
             const isDirectory = item[1];
 
             progressInfo.items.completed = itemsCount - items.length;
+
             const updateStreamProgress = (transfered, total) => {
                 progressInfo.streams[streamIndex] = {
                     itemPath,
                     transfered,
                     total,
                 }
-                if(progress)
-                    progress(progressInfo);
+                if(options?.progress)
+                    options.progress(progressInfo);
             }
+
             updateStreamProgress(0, 0);
 
             const localPath = path.resolve(this.baseDir, itemPath);
@@ -296,11 +315,31 @@ export class RsyncHTTP2Client {
         }
     }
 
-    async pull(itemPath: string, progress?:(info: ProgressInfo) => void): Promise<Status> {
+    async pull(itemPath: string, options?: PullOptions): Promise<Status> {
         const session = connect(this.endpoint);
-        session.on('error', (err) => console.error(err));
+        session.on('error', (err) => {
+            throw err;
+        });
 
-        const items = await this.scanItemOnRemote(session, itemPath);
+        let items = await this.scanItemOnRemote(session, itemPath);
+
+        if(items.length === 0){
+            return {
+                status: "error",
+                message: `[${itemPath}] does not exists or is empty on remote server.`
+            }
+        }
+
+        if(options?.exclude){
+            items = items.filter(([itemPath]) => {
+                // if we find an exclude item that starts with the itemPath
+                // then we should exclude. This way we can exclude a directory
+                const exclude = options.exclude.find(item => itemPath.startsWith(item));
+
+                // keep only if no exclude found
+                return !exclude;
+            });
+        }
 
         const mainItemPathIsDirectory = items[0][1];
         let onFinish;
@@ -323,8 +362,8 @@ export class RsyncHTTP2Client {
                 if(diffs.length){
                     session.close();
                     return {
-                        status: "error",
-                        message: `Can't pull. Changes in [${diffs.join(", ")}]`
+                        status: "conflicts",
+                        items: diffs 
                     };
                 }
             }
@@ -334,7 +373,6 @@ export class RsyncHTTP2Client {
                 this.saveSnapshotAndVersion(mainLocalPath, await createSnapshot(this.baseDir, fileItemsPaths), remoteVersion);
             }
         }
-
 
         const itemsCount = items.length; 
         const progressInfo: ProgressInfo = {
@@ -352,6 +390,10 @@ export class RsyncHTTP2Client {
             if (!item) {
 
                 if (stream) {
+                    delete progressInfo.streams[streamIndex];
+                    if(options?.progress)
+                        options.progress(progressInfo);
+
                     stream.close();
                     stream.end();
                 }
@@ -369,8 +411,8 @@ export class RsyncHTTP2Client {
                     transfered,
                     total,
                 }
-                if(progress)
-                    progress(progressInfo);
+                if(options?.progress)
+                    options.progress(progressInfo);
             }
             updateStreamProgress(0, 0);
 
@@ -453,11 +495,7 @@ export class RsyncHTTP2Client {
 
                         if (receivedData === size) {
                             stream.off("data", receivePatches);
-                            try {
-                                fs.writeFileSync(localPath, Buffer.from(apply(fs.readFileSync(localPath), patches.buffer)))
-                            } catch (e) {
-                                log(`Couln't not write [${itemPath}]`)
-                            }
+                            fs.writeFileSync(localPath, Buffer.from(apply(fs.readFileSync(localPath), patches.buffer)))
                             resolve();
                         }
                     }

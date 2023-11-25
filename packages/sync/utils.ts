@@ -3,17 +3,44 @@ import path from "path";
 import ignore, {Ignore} from "ignore";
 import { syncFileName } from "./constants";
 
-export const scan = (baseDir: string, itemPath: string, items: [string, boolean][] = []) => {
+export const scan = (baseDir: string, itemPath: string, filters: string[], items: [string, boolean][] = [], ignoreAccumulator?: Ignore) => {
     if(itemPath.endsWith(syncFileName)) return;
-    
+
     const localPath = path.resolve(baseDir, itemPath);
     if (!fs.existsSync(localPath))
         return items;
 
     const isDirectory = fs.statSync(localPath).isDirectory();
     items.push([itemPath, isDirectory]);
+
     if (isDirectory) {
-        fs.readdirSync(localPath).map(subItem => scan(baseDir, itemPath + "/" + subItem, items));
+        let subItems = fs.readdirSync(localPath);
+        if(filters?.length){
+            // if we have filters, try to find a filter file in current dir
+            for(const subItem of subItems){
+                if(!filters.includes(subItem)) continue;
+
+                if(!ignoreAccumulator){
+                    ignoreAccumulator = ignore();
+                }
+
+                // read the file and add to the ignores
+                ignoreAccumulator.add(fs.readFileSync(path.resolve(localPath, subItem)).toString().split("\n"));
+            }
+        }
+        
+        subItems.forEach(subItem => {
+            const subItemPath = itemPath !== "."
+                ? itemPath + "/" + subItem
+                : subItem;
+
+            // if we have to ignores, check if this subItem is ignored
+            if(ignoreAccumulator && ignoreAccumulator.ignores(subItemPath))
+                return;
+
+            // recurse
+            scan(baseDir, subItemPath, filters, items, ignoreAccumulator);
+        });
     }
 
     return items;
@@ -72,6 +99,3 @@ export function getSnapshotDiffs(snapshotA: Snapshot, snapshotB: Snapshot){
         diffs
     }
 }
-
-export const normalizePath = (maybeWindowsPath: string) => 
-    maybeWindowsPath.split(path.sep).join("/");
