@@ -495,7 +495,11 @@ export class RsyncHTTP2Client {
 
                         if (receivedData === size) {
                             stream.off("data", receivePatches);
-                            fs.writeFileSync(localPath, Buffer.from(apply(fs.readFileSync(localPath), patches.buffer)))
+                            try{
+                                fs.writeFileSync(localPath, Buffer.from(apply(fs.readFileSync(localPath), patches.buffer)))
+                            }catch(e){ 
+                                console.log(`Failed to write to [${localPath}]`)
+                            }
                             resolve();
                         }
                     }

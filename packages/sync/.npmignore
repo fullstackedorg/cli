@@ -1,4 +1,8 @@
 rsync/**/*
 !rsync/src/**/*
 
+*.js.map
+*.ts
+*.tsx
+!*.d.ts
 *.tgz
