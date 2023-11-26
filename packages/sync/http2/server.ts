@@ -8,10 +8,6 @@ import path from "path";
 import { apply } from "../rsync/src/apply";
 import { numberToBufferOfLength, scan } from "../utils";
 
-const log = (...args) => {
-    console.log("[SERVER]\n", ...args);
-}
-
 export class RsyncHTTP2Server {
     port: number = 8000;
     baseDir: string = "";
@@ -350,16 +346,18 @@ export class RsyncHTTP2Server {
         server.on('stream', async (stream, headers) => {
             const pathname = headers[":path"];
 
-            stream.respond({
+            const outHeaders = {
                 ':status': 200
-            });
+            }
 
             if (pathname === "/scan") {
+                stream.respond(outHeaders);
                 const itemPath = await readBody(stream);
                 const itemScan = scan(this.baseDir, itemPath, null);
                 stream.write(JSON.stringify(itemScan));
             }
             else if (pathname === "/version"){
+                stream.respond(outHeaders);
                 const syncFile = path.resolve(this.baseDir, await readBody(stream), syncFileName);
                 const version = fs.existsSync(syncFile)
                     ? JSON.parse(fs.readFileSync(syncFile).toString()).version
@@ -367,6 +365,7 @@ export class RsyncHTTP2Server {
                 stream.write(JSON.stringify({version}));
             }
             else if (pathname === "/bump"){
+                stream.respond(outHeaders);
                 const {version, itemPath} = JSON.parse(await readBody(stream));
                 const syncFile = path.resolve(this.baseDir, itemPath, syncFileName);
                 const stringified = JSON.stringify({version});
@@ -374,15 +373,47 @@ export class RsyncHTTP2Server {
                 stream.write(stringified);
             }
             else if (pathname === "/pull") {
+                stream.respond(outHeaders);
                 await this.pull(stream);
             }
             else if (pathname === "/push") {
+                stream.respond(outHeaders);
                 await this.push(stream);
+            }
+            else {
+                // remove forward slash and queryString
+                const maybeFsMethodName = pathname.slice(1).split("?").shift();
+
+                const maybeFsMethod = fs.promises[maybeFsMethodName];
+
+                if (maybeFsMethod){
+                    stream.respond(outHeaders);
+
+                    const args = JSON.parse(await readBody(stream));
+
+                    let result;
+                    // override readdir withFileTypes to directly return isDirectory
+                    // this way we can all the information in one request
+                    if(maybeFsMethodName === "readdir" && args.at(1)?.withFileTypes) {
+                        const items = await fs.promises.readdir(args.at(0), args.at(1) as {withFileTypes: true});
+                        result = items.map(item => ({
+                            ...item,
+                            isDirectory: item.isDirectory()
+                        }));
+                    } else {
+                        result = await maybeFsMethod(...args);
+                    }
+
+                    if(result){
+                        stream.write(JSON.stringify(result));}
+                }
+                else {
+                    stream.respond({":status": 404});
+                }
             }
 
             stream.end();
-        })
-
+        });
 
         server.listen(this.port);
 
