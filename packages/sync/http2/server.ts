@@ -1,8 +1,8 @@
-import fs, { read } from "fs";
-import http2, { ServerHttp2Stream } from "http2";
+import fs from "fs";
+import http2, { ServerHttp2Stream, Http2ServerRequest, Http2ServerResponse } from "http2";
 import { prepareStream } from "../prepareStream";
 import { diff } from "../rsync/src/diff";
-import { Writable } from "stream";
+import { Readable, Writable } from "stream";
 import { BLOCK_SIZE_BYTES, CHUNK_SIZE, HEADER_SIZE, Status, syncFileName } from "../constants";
 import path from "path";
 import { apply } from "../rsync/src/apply";
@@ -311,13 +311,9 @@ export class RsyncHTTP2Server {
                     else if (!itemPathLength && accumulator.byteLength >= 2) {
                         itemPathLength = accumulator.subarray(0, 2).readUInt16LE();
 
-                        // we'll send \x00 \x00 when finished
+                        // we'll receive \x00 \x00 when finished
                         if (itemPathLength === 0) {
                             stream.close(http2.constants.NGHTTP2_NO_ERROR, () => stream.end());
-
-
-
-
                             return;
                         }
 
@@ -336,10 +332,64 @@ export class RsyncHTTP2Server {
         })
     }
 
+    async fsRemoteHttp1(req: Http2ServerRequest, res: Http2ServerResponse){
+        if(req.url === "/hello"){
+            res.writeHead(200);
+            res.end();
+            return;
+        }
+
+        // remove forward slash and queryString
+        const maybeFsMethodName = req.url.slice(1).split("?").shift();
+
+        const maybeFsMethod = fs.promises[maybeFsMethodName];
+
+        if (maybeFsMethod){
+            if(req.method !== "POST"){
+                res.writeHead(405);
+                res.write(`Only POST method allowed. Received [${req.method}]`)
+                res.end();
+                return;
+            }
+
+            const args = Object.values<any>(JSON.parse(await readBody(req)));
+
+            let result;
+            // override readdir withFileTypes to directly return isDirectory
+            // this way we can have all the information in one request
+            if(maybeFsMethodName === "readdir" && args.at(1)?.withFileTypes) {
+                const items = await fs.promises.readdir(args.at(0), args.at(1) as {withFileTypes: true});
+                result = items.map(item => ({
+                    ...item,
+                    isDirectory: item.isDirectory()
+                }));
+            } else {
+                result = await maybeFsMethod(...args);
+            }
+
+            if(result){
+                if(result instanceof Buffer){
+                    res.writeHead(200);
+                    res.write(result);
+                }
+                else{
+                    res.writeHead(200, {"content-type": "application/json"});
+                    res.write(JSON.stringify(result));
+                }
+            }
+
+            res.end();
+        }
+
+    }
+
     start(): Status {
         const server = this.ssl 
-            ? http2.createSecureServer(this.ssl)
-            : http2.createServer();
+            ? http2.createSecureServer({
+                ...this.ssl,
+                allowHTTP1: true
+            }, this.fsRemoteHttp1)
+            : http2.createServer(this.fsRemoteHttp1);
 
         server.on('error', (err) => console.error(err))
 
@@ -381,35 +431,7 @@ export class RsyncHTTP2Server {
                 await this.push(stream);
             }
             else {
-                // remove forward slash and queryString
-                const maybeFsMethodName = pathname.slice(1).split("?").shift();
-
-                const maybeFsMethod = fs.promises[maybeFsMethodName];
-
-                if (maybeFsMethod){
-                    stream.respond(outHeaders);
-
-                    const args = JSON.parse(await readBody(stream));
-
-                    let result;
-                    // override readdir withFileTypes to directly return isDirectory
-                    // this way we can all the information in one request
-                    if(maybeFsMethodName === "readdir" && args.at(1)?.withFileTypes) {
-                        const items = await fs.promises.readdir(args.at(0), args.at(1) as {withFileTypes: true});
-                        result = items.map(item => ({
-                            ...item,
-                            isDirectory: item.isDirectory()
-                        }));
-                    } else {
-                        result = await maybeFsMethod(...args);
-                    }
-
-                    if(result){
-                        stream.write(JSON.stringify(result));}
-                }
-                else {
-                    stream.respond({":status": 404});
-                }
+                stream.respond({":status": 404});
             }
 
             stream.end();
@@ -424,7 +446,7 @@ export class RsyncHTTP2Server {
     }
 }
 
-const readBody = (stream: ServerHttp2Stream) => new Promise<string>(resolve => {
+const readBody = (stream: Readable) => new Promise<string>(resolve => {
     let data = '';
     stream.on("data", chunk => data += chunk);
     stream.on("end", () => resolve(data.toString()))

@@ -24,7 +24,7 @@ type PullOptions = {
 export class RsyncHTTP2Client {
     endpoint: string;
     baseDir: string = "";
-    maximumConcurrentStreams: number = 10;
+    maximumConcurrentStreams: number = 5;
 
     constructor(endpoint: string) {
         this.endpoint = endpoint;
@@ -102,7 +102,7 @@ export class RsyncHTTP2Client {
         })
     }
 
-    async push(itemPath: string, options: PushOptions): Promise<Status> {
+    async push(itemPath: string, options?: PushOptions): Promise<Status> {
         const session = connect(this.endpoint);
         session.on('error', (err) => {
             throw err;

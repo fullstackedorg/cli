@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@fullstacked/cli": "file:../../fullstacked-cli-0.10.15.tgz",
+    "@fullstacked/cli": "^0.10.15",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {
