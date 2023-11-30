@@ -364,7 +364,14 @@ export class RsyncHTTP2Server {
                     isDirectory: item.isDirectory()
                 }));
             } else {
-                result = await maybeFsMethod(...args);
+                try{
+                    result = await maybeFsMethod(...args);
+                } catch (e) {
+                    res.writeHead(500);
+                    res.write(e.message);
+                    res.end();
+                    return;
+                }
             }
 
             if(result){

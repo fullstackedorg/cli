@@ -1,13 +1,13 @@
 {
   "name": "@fullstacked/sync",
-  "version": "0.10.0-alpha.3",
+  "version": "0.10.0-alpha.4",
   "description": "Sync directories and files with a remote server",
   "main": "index.js",
   "author": "cplepage",
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@fullstacked/cli": "^0.10.15",
+    "@fullstacked/cli": "file:../../fullstacked-cli-0.10.15.tgz",
     "ignore": "^5.3.0",
     "pretty-bytes": "^6.1.1"
   },

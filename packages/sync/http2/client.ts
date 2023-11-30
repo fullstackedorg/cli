@@ -344,8 +344,18 @@ export class RsyncHTTP2Client {
         const mainItemPathIsDirectory = items[0][1];
         let onFinish;
         if(mainItemPathIsDirectory){
+            const remoteVersion = await this.getVersionOnRemote(session, itemPath);
+
             const mainLocalPath = path.resolve(this.baseDir, itemPath);
             const { version, ...previousSnapshot } = this.getSavedSnapshotAndVersion(mainLocalPath);
+
+            if(remoteVersion !== null && version !== null && remoteVersion === version){
+                return {
+                    status: "none",
+                    message: "Same version as remote. No pull needed."
+                }
+            }
+
             const fileItemsPaths = items
                 .filter(([_, isDir]) => !isDir)
                 .map(([itemPath]) => itemPath);
