@@ -332,19 +332,22 @@ export class RsyncHTTP2Server {
         })
     }
 
-    async fsRemoteHttp1(req: Http2ServerRequest, res: Http2ServerResponse){
+    async requestHandler(req: Http2ServerRequest, res: Http2ServerResponse){
+        console.log("handler", req.url);
+        console.log(req.headers);
+
         if(req.url === "/hello"){
             res.writeHead(200);
             res.end();
             return;
         }
 
-        // remove forward slash and queryString
-        const maybeFsMethodName = req.url.slice(1).split("?").shift();
+        
+        const fsMethod = maybeFsMethod(req.url);
 
-        const maybeFsMethod = fs.promises[maybeFsMethodName];
+        if (fsMethod){
+            console.log("fs method");
 
-        if (maybeFsMethod){
             if(req.method !== "POST"){
                 res.writeHead(405);
                 res.write(`Only POST method allowed. Received [${req.method}]`)
@@ -353,11 +356,12 @@ export class RsyncHTTP2Server {
             }
 
             const args = Object.values<any>(JSON.parse(await readBody(req)));
+            console.log("Received Body", args);
 
             let result;
             // override readdir withFileTypes to directly return isDirectory
             // this way we can have all the information in one request
-            if(maybeFsMethodName === "readdir" && args.at(1)?.withFileTypes) {
+            if(fsMethod.name === "readdir" && args.at(1)?.withFileTypes) {
                 const items = await fs.promises.readdir(args.at(0), args.at(1) as {withFileTypes: true});
                 result = items.map(item => ({
                     ...item,
@@ -365,7 +369,7 @@ export class RsyncHTTP2Server {
                 }));
             } else {
                 try{
-                    result = await maybeFsMethod(...args);
+                    result = await fsMethod(...args);
                 } catch (e) {
                     res.writeHead(500);
                     res.write(e.message);
@@ -395,13 +399,17 @@ export class RsyncHTTP2Server {
             ? http2.createSecureServer({
                 ...this.ssl,
                 allowHTTP1: true
-            }, this.fsRemoteHttp1)
-            : http2.createServer(this.fsRemoteHttp1);
+            }, this.requestHandler)
+            : http2.createServer(this.requestHandler);
 
         server.on('error', (err) => console.error(err))
 
         server.on('stream', async (stream, headers) => {
             const pathname = headers[":path"];
+
+            console.log("stream", pathname, stream.headersSent)
+            // request handler took care of it
+            if(stream.headersSent || maybeFsMethod(pathname)) return;
 
             const outHeaders = {
                 ':status': 200
@@ -458,3 +466,10 @@ const readBody = (stream: Readable) => new Promise<string>(resolve => {
     stream.on("data", chunk => data += chunk);
     stream.on("end", () => resolve(data.toString()))
 })
+
+const maybeFsMethod = (pathname: string) => {
+    // remove forward slash and queryString
+    const maybeFsMethodName = pathname.slice(1).split("?").shift();
+
+    return fs.promises[maybeFsMethodName] as Function;
+}

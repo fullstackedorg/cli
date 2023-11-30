@@ -25,6 +25,9 @@ export class RsyncHTTP2Client {
     endpoint: string;
     baseDir: string = "";
     maximumConcurrentStreams: number = 5;
+    headers: {
+        [header: string]: string
+    };
 
     constructor(endpoint: string) {
         this.endpoint = endpoint;
@@ -48,7 +51,8 @@ export class RsyncHTTP2Client {
     private getVersionOnRemote(session: ClientHttp2Session, itemPath: string): Promise<number>{
         const stream = session.request({
             ':path': '/version',
-            ':method': 'POST'
+            ':method': 'POST',
+            ...this.headers
         });
         stream.write(itemPath)
         stream.end();
@@ -66,7 +70,8 @@ export class RsyncHTTP2Client {
     private bumpVersionOnRemote(session: ClientHttp2Session, itemPath: string, version: number): Promise<number> {
         const stream = session.request({
             ':path': '/bump',
-            ':method': 'POST'
+            ':method': 'POST',
+            ...this.headers
         });
         stream.write(JSON.stringify({
             itemPath,
@@ -87,7 +92,8 @@ export class RsyncHTTP2Client {
     private scanItemOnRemote(session: ClientHttp2Session, itemPath: string): Promise<ReturnType<typeof scan>> {
         const stream = session.request({
             ':path': '/scan',
-            ':method': 'POST'
+            ':method': 'POST',
+            ...this.headers
         });
         stream.write(itemPath)
         stream.end();
@@ -183,7 +189,8 @@ export class RsyncHTTP2Client {
             if (!stream) {
                 stream = session.request({
                     ':path': '/push',
-                    ':method': 'POST'
+                    ':method': 'POST',
+                    ...this.headers
                 });
 
                 stream.on("end", () => {
@@ -437,7 +444,8 @@ export class RsyncHTTP2Client {
             if (!stream) {
                 stream = session.request({
                     ':path': '/pull',
-                    ':method': 'POST'
+                    ':method': 'POST',
+                    ...this.headers
                 });
             }
 

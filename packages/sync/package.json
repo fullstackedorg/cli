@@ -6,6 +6,9 @@
   "author": "cplepage",
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "docker": "cd ../../ && docker build . -t fullstackedorg/storage -f packages/sync/Dockerfile"
+  },
   "dependencies": {
     "@fullstacked/cli": "file:../../fullstacked-cli-0.10.15.tgz",
     "ignore": "^5.3.0",

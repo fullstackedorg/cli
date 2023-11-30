@@ -1,6 +1,7 @@
 import {execSync} from "child_process";
 import {resolve} from "path";
 import {existsSync, readFileSync, rmSync, writeFileSync} from "fs";
+import CLIParser from "./utils/CLIParser";
 
 function packPackage(packageDirectory: string){
     const packageFilename = execSync("npm pack", {cwd: packageDirectory})
@@ -18,12 +19,23 @@ function installPackageInPackage(packageDirectory: string, packageToInstall: str
     execSync(`npm i ${packageToInstall} ${dev ? "-D" : ""}`, {cwd: packageDirectory, stdio: "inherit"});
 }
 
-function installPackageThenPack(packageDirectory: string, packageToInstall: string){
-    installPackageInPackage(packageDirectory, packageToInstall);
-    return packPackage(packageDirectory);
+const toPack = CLIParser.getCommandLineArgumentsValues({
+    packages: {
+        type: "string[]"
+    }
+})
+
+function installPackageThenPack(packageToPack: string, packageToInstall: string){
+    if(toPack?.packages && !toPack.packages.includes(packageToPack))
+        return;
+
+    packageToPack = "packages/" + packageToPack;
+    installPackageInPackage(packageToPack, packageToInstall);
+    return packPackage(packageToPack);
 }
 
 function removePackages(packageLocation: string, packages: string[]){
+    packageLocation = "packages/" + packageLocation
     const packageJSON = JSON.parse(readFileSync(packageLocation + "/package.json").toString());
     packages.forEach(packageName => {
         delete packageJSON.devDependencies[packageName];
@@ -37,26 +49,28 @@ function removePackages(packageLocation: string, packages: string[]){
 }
 
 // pack packages
-export const buildPackage  = installPackageThenPack("packages/build"   , fullstackedPackage);
-export const runPackage    = installPackageThenPack("packages/run"     , fullstackedPackage);
-export const watchPackage  = installPackageThenPack("packages/watch"   , fullstackedPackage);
-export const deployPackage = installPackageThenPack("packages/deploy"  , fullstackedPackage);
-export const backupPackage = installPackageThenPack("packages/backup"  , fullstackedPackage);
-export const sharePackage  = installPackageThenPack("packages/share"   , fullstackedPackage);
-export const syncPackage   = installPackageThenPack("packages/sync"    , fullstackedPackage);
-export const webappPackage = installPackageThenPack("packages/webapp"  , fullstackedPackage);
-export const createPackage = installPackageThenPack("packages/create"  , fullstackedPackage);
+export const buildPackage  = installPackageThenPack("build"   , fullstackedPackage);
+export const runPackage    = installPackageThenPack("run"     , fullstackedPackage);
+export const watchPackage  = installPackageThenPack("watch"   , fullstackedPackage);
+export const deployPackage = installPackageThenPack("deploy"  , fullstackedPackage);
+export const backupPackage = installPackageThenPack("backup"  , fullstackedPackage);
+export const sharePackage  = installPackageThenPack("share"   , fullstackedPackage);
+export const syncPackage   = installPackageThenPack("sync"    , fullstackedPackage);
+export const webappPackage = installPackageThenPack("webapp"  , fullstackedPackage);
+export const createPackage = installPackageThenPack("create"  , fullstackedPackage);
 
 // gui
-const guiLocation = "packages/gui";
-removePackages(guiLocation, [
-    "@fullstacked/build",
-    "@fullstacked/deploy",
-    "@fullstacked/watch",
-    "@fullstacked/webapp"
-]);
-installPackageInPackage(guiLocation, buildPackage, true);
-installPackageInPackage(guiLocation, deployPackage, true);
-installPackageInPackage(guiLocation, watchPackage, true);
-installPackageInPackage(guiLocation, webappPackage, true);
+const guiLocation = "gui";
+if(!toPack?.packages || toPack.packages.includes(guiLocation)){
+    removePackages(guiLocation, [
+        "@fullstacked/build",
+        "@fullstacked/deploy",
+        "@fullstacked/watch",
+        "@fullstacked/webapp"
+    ]);
+    installPackageInPackage(guiLocation, buildPackage, true);
+    installPackageInPackage(guiLocation, deployPackage, true);
+    installPackageInPackage(guiLocation, watchPackage, true);
+    installPackageInPackage(guiLocation, webappPackage, true);  
+}
 export const guiPackage = installPackageThenPack(guiLocation, fullstackedPackage);
