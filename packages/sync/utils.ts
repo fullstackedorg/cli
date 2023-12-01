@@ -70,10 +70,12 @@ export async function createSnapshot(baseDir: string, keys: string[]) {
         }
 
         const filePath = path.resolve(baseDir, key);
-        fs.promises.lstat(filePath).then(({mtimeMs}) => {
-            snapshot[key] = mtimeMs;
-            res();
-        })
+        fs.promises.lstat(filePath)
+            .then(({mtimeMs}) => {
+                snapshot[key] = mtimeMs;
+                res();
+            })
+            .catch(res)
     })));
 
     return snapshot;

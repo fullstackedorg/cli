@@ -27,7 +27,7 @@ export class RsyncHTTP2Client {
     maximumConcurrentStreams: number = 5;
     headers: {
         [header: string]: string
-    };
+    } = {};
 
     constructor(endpoint: string) {
         this.endpoint = endpoint;

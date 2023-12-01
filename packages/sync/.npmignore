@@ -6,3 +6,5 @@ rsync/**/*
 *.tsx
 !*.d.ts
 *.tgz
+
+Dockerfile

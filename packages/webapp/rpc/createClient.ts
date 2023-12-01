@@ -173,7 +173,7 @@ async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
             ? JSON.stringify(data)
             : data.toString();
 
-        throw new Error(errorData);
+        throw new Error(`[${url.toString()}]` + errorData);
     }
 
     return data;

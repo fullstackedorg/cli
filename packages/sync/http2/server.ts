@@ -7,8 +7,17 @@ import { BLOCK_SIZE_BYTES, CHUNK_SIZE, HEADER_SIZE, Status, syncFileName } from 
 import path from "path";
 import { apply } from "../rsync/src/apply";
 import { numberToBufferOfLength, scan } from "../utils";
+import { IncomingHttpHeaders } from "http";
 
 export class RsyncHTTP2Server {
+    static streamHandledPath = [
+        "/version",
+        "/scan",
+        "/push",
+        "/pull",
+        "/bump"
+    ];
+
     port: number = 8000;
     baseDir: string = "";
     ssl: {
@@ -336,12 +345,15 @@ export class RsyncHTTP2Server {
         console.log("handler", req.url);
         console.log(req.headers);
 
+        // will be handled by the stream handler
+        if( RsyncHTTP2Server.streamHandledPath.includes(req.url) )
+            return;
+
         if(req.url === "/hello"){
             res.writeHead(200);
             res.end();
             return;
         }
-
         
         const fsMethod = maybeFsMethod(req.url);
 
@@ -355,7 +367,14 @@ export class RsyncHTTP2Server {
                 return;
             }
 
-            const args = Object.values<any>(JSON.parse(await readBody(req)));
+            const body = await readBody(req);
+            let args;
+            try{
+                args = Object.values<any>(JSON.parse(body));
+            } catch (e) {
+                console.log("icicic", body, req.url);
+                throw e;
+            }
             console.log("Received Body", args);
 
             let result;
@@ -388,71 +407,76 @@ export class RsyncHTTP2Server {
                     res.write(JSON.stringify(result));
                 }
             }
-
-            res.end();
         }
 
+        res.end();
+    }
+
+    async streamHandler(stream: ServerHttp2Stream, headers: IncomingHttpHeaders) {
+        const pathname = headers[":path"].toString();
+
+        // will be handled by request handler
+        if( !RsyncHTTP2Server.streamHandledPath.includes(pathname) )
+            return;
+
+
+        console.log("stream", pathname, stream.headersSent)
+        // request handler took care of it
+        if(stream.headersSent || maybeFsMethod(pathname)) return;
+
+        const outHeaders = {
+            ':status': 200
+        }
+
+        if (pathname === "/scan") {
+            stream.respond(outHeaders);
+            const itemPath = await readBody(stream);
+            const itemScan = scan(this.baseDir, itemPath, null);
+            stream.write(JSON.stringify(itemScan));
+        }
+        else if (pathname === "/version"){
+            stream.respond(outHeaders);
+            const syncFile = path.resolve(this.baseDir, await readBody(stream), syncFileName);
+            const version = fs.existsSync(syncFile)
+                ? JSON.parse(fs.readFileSync(syncFile).toString()).version
+                : null;
+            stream.write(JSON.stringify({version}));
+        }
+        else if (pathname === "/bump"){
+            stream.respond(outHeaders);
+            const {version, itemPath} = JSON.parse(await readBody(stream));
+            const syncFile = path.resolve(this.baseDir, itemPath, syncFileName);
+            const stringified = JSON.stringify({version});
+            fs.writeFileSync(syncFile, stringified);
+            stream.write(stringified);
+        }
+        else if (pathname === "/pull") {
+            stream.respond(outHeaders);
+            await this.pull(stream);
+        }
+        else if (pathname === "/push") {
+            stream.respond(outHeaders);
+            await this.push(stream);
+        }
+        else {
+            stream.respond({":status": 404});
+        }
+
+        stream.end();
     }
 
     start(): Status {
         const server = this.ssl 
             ? http2.createSecureServer({
-                ...this.ssl,
-                allowHTTP1: true
-            }, this.requestHandler)
+                    ...this.ssl,
+                    allowHTTP1: true
+                }, this.requestHandler)
             : http2.createServer(this.requestHandler);
 
-        server.on('error', (err) => console.error(err))
-
-        server.on('stream', async (stream, headers) => {
-            const pathname = headers[":path"];
-
-            console.log("stream", pathname, stream.headersSent)
-            // request handler took care of it
-            if(stream.headersSent || maybeFsMethod(pathname)) return;
-
-            const outHeaders = {
-                ':status': 200
-            }
-
-            if (pathname === "/scan") {
-                stream.respond(outHeaders);
-                const itemPath = await readBody(stream);
-                const itemScan = scan(this.baseDir, itemPath, null);
-                stream.write(JSON.stringify(itemScan));
-            }
-            else if (pathname === "/version"){
-                stream.respond(outHeaders);
-                const syncFile = path.resolve(this.baseDir, await readBody(stream), syncFileName);
-                const version = fs.existsSync(syncFile)
-                    ? JSON.parse(fs.readFileSync(syncFile).toString()).version
-                    : null;
-                stream.write(JSON.stringify({version}));
-            }
-            else if (pathname === "/bump"){
-                stream.respond(outHeaders);
-                const {version, itemPath} = JSON.parse(await readBody(stream));
-                const syncFile = path.resolve(this.baseDir, itemPath, syncFileName);
-                const stringified = JSON.stringify({version});
-                fs.writeFileSync(syncFile, stringified);
-                stream.write(stringified);
-            }
-            else if (pathname === "/pull") {
-                stream.respond(outHeaders);
-                await this.pull(stream);
-            }
-            else if (pathname === "/push") {
-                stream.respond(outHeaders);
-                await this.push(stream);
-            }
-            else {
-                stream.respond({":status": 404});
-            }
-
-            stream.end();
-        });
-
-        server.listen(this.port);
+        server
+            .on('error', (err) => console.error(err))
+            .on('stream', this.streamHandler.bind(this))
+            .listen(this.port);
 
         return {
             status: "success",
@@ -462,9 +486,9 @@ export class RsyncHTTP2Server {
 }
 
 const readBody = (stream: Readable) => new Promise<string>(resolve => {
-    let data = '';
-    stream.on("data", chunk => data += chunk);
-    stream.on("end", () => resolve(data.toString()))
+    let data = "";
+    stream.on("data", chunk => data += chunk.toString());
+    stream.on("end", () => resolve(data))
 })
 
 const maybeFsMethod = (pathname: string) => {
