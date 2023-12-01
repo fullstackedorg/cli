@@ -519,6 +519,9 @@ export default class Deploy extends CommandInterface {
         const dockerInstallScript = await (await fetch("https://get.docker.com")).text();
         await sftp.put(Buffer.from(dockerInstallScript), "/tmp/get-docker.sh");
         await this.execOnRemoteHost("sh /tmp/get-docker.sh", true);
+        await this.execOnRemoteHost("sudo groupadd docker");
+        await this.execOnRemoteHost("sudo usermod -aG docker $USER");
+        await this.execOnRemoteHost("newgrp docker");
         await sftp.delete("/tmp/get-docker.sh");
     }
 

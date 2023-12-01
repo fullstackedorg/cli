@@ -4,7 +4,6 @@ export default {
         "sudo yum install docker -y",
         "sudo systemctl enable docker.service",
         "sudo systemctl start docker.service",
-        "sudo chmod 666 /var/run/docker.sock",
         "sudo mkdir -p ~/.docker/cli-plugins",
         "sudo curl -sSL https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m) -o ~/.docker/cli-plugins/docker-compose",
         "sudo chmod +x ~/.docker/cli-plugins/docker-compose"
