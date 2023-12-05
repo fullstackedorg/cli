@@ -1,6 +1,6 @@
 {
   "name": "@fullstacked/sync",
-  "version": "0.10.0-alpha.9",
+  "version": "0.10.0",
   "description": "Sync directories and files with a remote server",
   "main": "index.js",
   "author": "cplepage",
