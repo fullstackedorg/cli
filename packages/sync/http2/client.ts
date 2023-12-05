@@ -474,8 +474,11 @@ export class RsyncHTTP2Client {
                         updateStreamProgress(written, size);
 
                         if (written === size) {
-                            stream.off("data", writeToFile);
-                            resolve();
+                            const fileHandleIsClosed = () => {
+                                stream.off("data", writeToFile);
+                                resolve();
+                            }
+                            writeStream.end(fileHandleIsClosed);
                         }
                     }
 
