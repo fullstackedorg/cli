@@ -7,7 +7,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@fullstacked/cli": "^0.10.14",
+    "@fullstacked/cli": "^0.10.15",
     "esbuild": "^0.19.5",
     "fast-glob": "^3.2.12",
     "js-yaml": "^4.1.0",

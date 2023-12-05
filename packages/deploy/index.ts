@@ -514,12 +514,21 @@ export default class Deploy extends CommandInterface {
             }
         }
 
-        if(await this.testDockerOnRemoteHost(true)) return;
+        if(!await this.testDockerOnRemoteHost(true)){
+            const dockerInstallScript = await (await fetch("https://get.docker.com")).text();
+            await sftp.put(Buffer.from(dockerInstallScript), "/tmp/get-docker.sh");
+            await this.execOnRemoteHost("sh /tmp/get-docker.sh", true);
+            await sftp.delete("/tmp/get-docker.sh");
+        };
+        
+        // make docker accessible with user
+        await this.execOnRemoteHost("sudo groupadd docker");
+        await this.execOnRemoteHost("sudo usermod -aG docker $USER");
 
-        const dockerInstallScript = await (await fetch("https://get.docker.com")).text();
-        await sftp.put(Buffer.from(dockerInstallScript), "/tmp/get-docker.sh");
-        await this.execOnRemoteHost("sh /tmp/get-docker.sh", true);
-        await sftp.delete("/tmp/get-docker.sh");
+        // reload sftp connection
+        await (await this.getSFTP()).end();
+        this.sftp = null;
+        await this.getSFTP();
     }
 
     /**

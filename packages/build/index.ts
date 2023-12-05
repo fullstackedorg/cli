@@ -141,7 +141,7 @@ export default class Build extends CommandInterface {
         if(this.config.externalModules)
             this.externalModules.push(...this.config.externalModules)
 
-        if(Info.packageJsonData.externalModules)
+        if(Info.packageJsonData?.externalModules)
             this.externalModules.push(...Info.packageJsonData.externalModules)
     }
 

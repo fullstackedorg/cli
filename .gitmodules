@@ -1,0 +1,3 @@
+[submodule "packages/sync/rsync"]
+	path = packages/sync/rsync
+	url = https://github.com/dldc-packages/rsync

@@ -7,6 +7,7 @@ export default  [
     "backup",
     "gui",
     "share",
+    "sync",
     "webapp",
     "workspace"
 ]

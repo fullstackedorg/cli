@@ -77,4 +77,10 @@ const server = new Server();
 server.start();
 
 export default server.serverHTTP;`);
+
+    fs.writeFileSync(resolve(dir, ".gitignore"), `.fullstacked-sync
+node_modules
+dist
+backup`);
+
 }

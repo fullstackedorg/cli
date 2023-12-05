@@ -3,6 +3,26 @@ import glob from "fast-glob";
 import fs from "fs";
 
 buildSync({
+    entryPoints: ["./utils/CLIParser.ts"],
+    outfile: "./utils/CLIParser.js",
+    platform: "node",
+    format: "esm",
+    sourcemap: true
+});
+
+const CLIParser = await import("./utils/CLIParser.js");
+
+const {packages} = CLIParser.default.getCommandLineArgumentsValues({
+    packages: {
+        type: "string[]"
+    }
+})
+const buildFileFilter = (file: string) => 
+    !packages 
+    || !file.startsWith("./packages") 
+    || packages.find(packageToBuild => file.startsWith(`./packages/${packageToBuild}`))
+
+buildSync({
     entryPoints: ["./utils/buildRecursively.ts"],
     outfile: "./utils/buildRecursively.js",
     platform: "node",
@@ -31,6 +51,7 @@ const toBuild = [
     "./packages/create/cli.ts",
     "./packages/create/create.ts",
     "./packages/share/index.ts",
+    "./packages/sync/index.ts",
     "./packages/webapp/server/index.ts",
     "./packages/webapp/server/HTML.ts",
     "./packages/webapp/client/react/useAPI.ts",
@@ -42,11 +63,17 @@ const toBuild = [
     "./prepare.ts",
     "./test.ts",
     "./cli.ts"
-].filter(file => !file.endsWith(".d.ts"));
+]   
+    .filter(buildFileFilter)
+    .filter(file => !file.endsWith(".d.ts"));
 
 await buildRecursively.default(toBuild);
 
 [
+    {
+        file: "./packages/sync/rsync/src/RsyncErreur.ts",
+        platform: "node"
+    },
     {
         file: "./packages/deploy/nginx/getAvailablePorts.ts",
         platform: "node"
@@ -55,14 +82,16 @@ await buildRecursively.default(toBuild);
         file: "./packages/watch/client.ts",
         platform: "browser"
     }
-].forEach(toBundle => buildSync({
-    entryPoints: [toBundle.file],
-    outfile: buildRecursively.convertPathToJSExt(toBundle.file),
-    bundle: true,
-    sourcemap: true,
-    format: "esm",
-    platform: toBundle.platform as Platform
-}));
+]
+    .filter(({file}) => buildFileFilter(file))
+    .forEach(toBundle => buildSync({
+        entryPoints: [toBundle.file],
+        outfile: buildRecursively.convertPathToJSExt(toBundle.file),
+        bundle: true,
+        sourcemap: true,
+        format: "esm",
+        platform: toBundle.platform as Platform
+    }));
 
 console.log('\x1b[32m%s\x1b[0m', "cli and scripts built");
 
