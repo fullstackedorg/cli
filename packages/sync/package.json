@@ -7,7 +7,8 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "docker": "cd ../../ && docker build . -t fullstackedorg/storage:test -f packages/sync/Dockerfile"
+    "predocker": "cd ../../ && npm pack",
+    "docker": "npm pack && cd ../../ && docker build . -t fullstackedorg/storage:test -f packages/sync/Dockerfile"
   },
   "dependencies": {
     "@fullstacked/cli": "^0.10.15",
