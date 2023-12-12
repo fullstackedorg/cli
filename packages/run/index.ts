@@ -2,7 +2,7 @@ import CommandInterface from "@fullstacked/cli/CommandInterface";
 import {resolve} from "path";
 import CLIParser from "@fullstacked/cli/utils/CLIParser";
 import Docker from "@fullstacked/cli/utils/docker";
-import DockerCompose from "dockerode-compose2";
+import DockerCompose from "dockerode-compose";
 import Info from "@fullstacked/cli/info";
 import Dockerode from "dockerode";
 import getNextAvailablePort from "@fullstacked/cli/utils/getNextAvailablePort";
