@@ -4,6 +4,7 @@ import mime from "mime";
 import HTML from "./HTML";
 import {dirname, resolve} from "path";
 import {fileURLToPath} from "url";
+import getNextAvailablePort from "@fullstacked/cli/utils/getNextAvailablePort";
 
 export type Listener = {
     name?: string,
@@ -160,8 +161,24 @@ export default class {
         res.end(fs.readFileSync(filePath));
     }
 
-    start(){
-        this.serverHTTP.listen(this.port);
+    start(findAvailablePort: true): Promise<void>;
+    start(findAvailablePort: false): void;
+    start(findAvailablePort = false) {
+        const listen = (callback?: () => void) => {
+            this.serverHTTP.listen(this.port, callback);
+        }
+
+        if(findAvailablePort){
+            return new Promise<void>(resolve => {
+                const onPortAvailability = port => {
+                    this.port = port;
+                    listen(resolve);
+                }
+                getNextAvailablePort(this.port).then(onPortAvailability)
+            })
+        }
+
+        listen();
     }
 
     promisify(requestListener: RequestListener<typeof IncomingMessage, typeof ServerResponse>): {handler(req, res): Promise<void>, resolver(req, res): void}{

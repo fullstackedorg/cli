@@ -108,7 +108,7 @@ export default async function(clientEntrypoint: string, serverEntrypoint: string
 
         try{
             const fileURL = pathToFileURL(resolve(outdir, modulePathToSafeJS(serverEntrypoint)));
-            server = (await import(fileURL.toString() + `?t=${Date.now()}`)).default;
+            server = (await import(fileURL.toString() + `?t=${Date.now()}`)).default.serverHTTP;
         }catch (e) {
             console.error(e);
             await closeServer();

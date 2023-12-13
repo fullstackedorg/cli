@@ -67,10 +67,11 @@ if(!toPack?.packages || toPack.packages.includes(guiLocation)){
         "@fullstacked/deploy",
         "@fullstacked/watch",
         "@fullstacked/webapp"
-    ]);
-    installPackageInPackage(guiLocation, buildPackage, true);
-    installPackageInPackage(guiLocation, deployPackage, true);
-    installPackageInPackage(guiLocation, watchPackage, true);
-    installPackageInPackage(guiLocation, webappPackage, true);  
+    ]);    
+    const guiPackageLocation = "packages/" + guiLocation;
+    installPackageInPackage(guiPackageLocation, buildPackage, true);
+    installPackageInPackage(guiPackageLocation, deployPackage, true);
+    installPackageInPackage(guiPackageLocation, watchPackage, true);
+    installPackageInPackage(guiPackageLocation, webappPackage, true);  
 }
 export const guiPackage = installPackageThenPack(guiLocation, fullstackedPackage);

@@ -74,9 +74,9 @@ div.innerText = "Welcome to FullStacked";`);
 import Server from "@fullstacked/webapp/server";
 
 const server = new Server();
-server.start();
+await server.start(true);
 
-export default server.serverHTTP;`);
+export default server;`);
 
     fs.writeFileSync(resolve(dir, ".gitignore"), `.fullstacked-sync
 node_modules

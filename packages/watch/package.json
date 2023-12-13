@@ -1,13 +1,13 @@
 {
   "name": "@fullstacked/watch",
-  "version": "0.10.23",
+  "version": "0.10.24",
   "description": "Automatically reBuild and reRun your Web App on file changes",
   "main": "index.js",
   "author": "cplepage",
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@fullstacked/cli": "^0.10.15",
+    "@fullstacked/cli": "^0.10.16",
     "esbuild": "^0.19.5",
     "fast-glob": "^3.2.12",
     "js-yaml": "^4.1.0",
