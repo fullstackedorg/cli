@@ -66,7 +66,7 @@ async function multiFetchCall(calls: MultiCall[]){
     let origin = this.origin;
 
     // default origin in browser
-    if(typeof window !== 'undefined' && !origin){
+    if(typeof window !== "undefined" && !origin){
         origin = window.location.origin + "/rpc";
     }
 
@@ -82,14 +82,14 @@ async function multiFetchCall(calls: MultiCall[]){
         body: JSON.stringify(calls)
     };
 
-    const headers = new Headers();
+    const headers = {};
 
-    Object.keys(this.headers).forEach(headerName => {
-        headers.append(headerName, this.headers[headerName]);
+    Object.entries(this.headers).forEach(([key, value]) => {
+        headers[key] = value;
     });
     requestInit.headers = headers;
 
-    headers.append("Content-Type", "application/json");
+    headers["Content-Type"] = "application/json";
 
     const response = await fetch(url.toString(), requestInit);
     if(response.status >= 400){
@@ -113,7 +113,7 @@ async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
     let origin = this.origin;
 
     // default origin in browser
-    if(typeof window !== 'undefined' && !origin){
+    if(typeof window !== "undefined" && !origin){
         origin = window.location.origin + "/rpc";
     }
 
@@ -122,21 +122,21 @@ async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
 
     const url = new URL(origin);
 
-    url.pathname += (url.pathname.endsWith("/") ? "" : "/") + pathComponents.join('/');
+    url.pathname += (url.pathname.endsWith("/") ? "" : "/") + pathComponents.join("/");
 
     const requestInit: RequestInit = {
         ...this.requestOptions,
         method
     };
 
-    const headers = new Headers();
+    const headers = {};
 
     switch (requestInit.method) {
-        case 'POST':
-        case 'PUT': {
+        case "POST":
+        case "PUT": {
             const body = {};
             args.forEach((value, index) => body[index] = value);
-            headers.append('Content-Type', "application/json");
+            headers["Content-Type"] = "application/json";
             requestInit.body = JSON.stringify(body);
             break;
         }
@@ -149,14 +149,14 @@ async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
                     return;
                 }
 
-                headers.append('Content-Type', "application/json");
+                headers["Content-Type"] = "application/json";
                 url.searchParams.append(index.toString(), JSON.stringify(value));
             });
         }
     }
 
-    Object.keys(this.headers).forEach(headerName => {
-        headers.append(headerName, this.headers[headerName]);
+    Object.entries(this.headers).forEach(([key, value]) => {
+        headers[key] = value;
     });
     requestInit.headers = headers;
 
@@ -164,7 +164,7 @@ async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
 
     const data = arrayBuffer
         ? await response.arrayBuffer()
-        : response.headers.get('Content-Type') === "application/json"
+        : response.headers.get("Content-Type") === "application/json"
             ? await response.json()
             : await response.text();
 
@@ -196,9 +196,9 @@ type NoAwait<T> = {
 
 export default function createClient<ApiDefinition>(origin = "") {
     return new Client<ApiDefinition>(origin) as {
-        requestOptions: Client<ApiDefinition>['requestOptions'],
-        headers: Client<ApiDefinition>['headers'],
-        origin: Client<ApiDefinition>['origin'],
+        requestOptions: Client<ApiDefinition>["requestOptions"],
+        headers: Client<ApiDefinition>["headers"],
+        origin: Client<ApiDefinition>["origin"],
         get(useCache?: boolean, arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
         post(arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
         put(arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
