@@ -281,8 +281,7 @@ export default class Build extends CommandInterface {
             }
         }
 
-        fs.mkdirSync(this.config.outputDir);
-
+        fs.mkdirSync(this.config.outputDir, {recursive: true});
 
         await Promise.all([
             this.buildServer(),

@@ -15,3 +15,4 @@ version.ts
 test
 package-lock.json
 packages/sync/rsync
+.fullstacked-sync
