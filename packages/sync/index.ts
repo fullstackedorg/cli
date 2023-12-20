@@ -5,6 +5,7 @@ import { RsyncHTTP2Client } from "./http2/client";
 import fs from "fs";
 import { ProgressInfo, Status } from "./constants";
 import prettyBytes from 'pretty-bytes';
+import path from "path";
 
 export default class Sync extends CommandInterface {
     static commandLineArguments = {
@@ -83,7 +84,6 @@ export default class Sync extends CommandInterface {
     async run(progress?:(info: ProgressInfo) => void): Promise<Status> {
         if(this.config.server){
             const server = new RsyncHTTP2Server();
-            server.baseDir = this.config.directory;
             server.port = this.config.serverPort;
 
             if(this.config.serverCertSSL && this.config.serverKeySSL){
@@ -92,6 +92,11 @@ export default class Sync extends CommandInterface {
                     key: fs.readFileSync(this.config.serverKeySSL)
                 }
             }
+
+            // the rsync server must be in right work directory
+            // without this, all the fs methods won't behave as expected
+            if(process.cwd() !== path.resolve(this.config.directory))
+                process.chdir(path.resolve(this.config.directory));
 
             return server.start();
         }

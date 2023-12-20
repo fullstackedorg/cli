@@ -33,8 +33,8 @@ export class RsyncHTTP2Client {
         this.endpoint = endpoint;
     }
 
-    private getSavedSnapshotAndVersion(itemLocalPath: string){
-        const syncFile = path.resolve(itemLocalPath, syncFileName);
+    getSavedSnapshotAndVersion(itemPath: string){
+        const syncFile = path.resolve(this.baseDir, itemPath, syncFileName);
 
         if(!fs.existsSync(syncFile)){
             return { version: null };
@@ -43,8 +43,8 @@ export class RsyncHTTP2Client {
         return JSON.parse(fs.readFileSync(syncFile).toString())
     }
 
-    private saveSnapshotAndVersion(itemLocalPath: string, snapshot: Snapshot, version: number) {
-        const syncFile = path.resolve(itemLocalPath, syncFileName);
+    private saveSnapshotAndVersion(itemPath: string, snapshot: Snapshot, version: number) {
+        const syncFile = path.resolve(this.baseDir, itemPath, syncFileName);
         fs.writeFileSync(syncFile, JSON.stringify({...snapshot, version: version}))
     }
 
@@ -118,16 +118,15 @@ export class RsyncHTTP2Client {
 
         if(!items.length) return;
 
-        const mainItemPathIsDirectory = items[0][1];
+        const mainItemPathIsDirectory = items[0][1] && !options.force;
         let onFinish;
         if(mainItemPathIsDirectory){
-            const mainLocalPath = path.resolve(this.baseDir, itemPath);
             const fileItemsPaths = items
                 .filter(([_, isDir]) => !isDir)
                 .map(([itemPath]) => itemPath);
 
             const snapshot = await createSnapshot(this.baseDir, fileItemsPaths);
-            const { version, ...previousSnapshot } = this.getSavedSnapshotAndVersion(mainLocalPath);
+            const { version, ...previousSnapshot } = this.getSavedSnapshotAndVersion(itemPath);
 
             const remoteVersion = await this.getVersionOnRemote(session, itemPath);
 
@@ -155,7 +154,7 @@ export class RsyncHTTP2Client {
             onFinish = async () => {
                 const newVersion = Math.max((version || 0) + 1, (remoteVersion || 0) + 1);
                 const bumpedVersion = await this.bumpVersionOnRemote(session, itemPath, newVersion);
-                this.saveSnapshotAndVersion(mainLocalPath, snapshot, bumpedVersion);
+                this.saveSnapshotAndVersion(itemPath, snapshot, bumpedVersion);
             }
         }
 
@@ -348,13 +347,12 @@ export class RsyncHTTP2Client {
             });
         }
 
-        const mainItemPathIsDirectory = items[0][1];
+        const mainItemPathIsDirectory = items[0][1] && !options.force;
         let onFinish;
         if(mainItemPathIsDirectory){
             const remoteVersion = await this.getVersionOnRemote(session, itemPath);
 
-            const mainLocalPath = path.resolve(this.baseDir, itemPath);
-            const { version, ...previousSnapshot } = this.getSavedSnapshotAndVersion(mainLocalPath);
+            const { version, ...previousSnapshot } = this.getSavedSnapshotAndVersion(itemPath);
 
             if(remoteVersion !== null && version !== null && remoteVersion === version){
                 return {
@@ -387,7 +385,7 @@ export class RsyncHTTP2Client {
 
             onFinish = async () => {
                 const remoteVersion = await this.getVersionOnRemote(session, itemPath);
-                this.saveSnapshotAndVersion(mainLocalPath, await createSnapshot(this.baseDir, fileItemsPaths), remoteVersion);
+                this.saveSnapshotAndVersion(itemPath, await createSnapshot(this.baseDir, fileItemsPaths), remoteVersion);
             }
         }
 

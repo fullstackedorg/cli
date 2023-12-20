@@ -16,10 +16,10 @@
     "@fullstacked/watch"
   ],
   "devDependencies": {
-    "@fullstacked/build": "file:../build/fullstacked-build-0.10.11.tgz",
+    "@fullstacked/build": "file:../build/fullstacked-build-0.10.12.tgz",
     "@fullstacked/deploy": "file:../deploy/fullstacked-deploy-0.10.17.tgz",
-    "@fullstacked/watch": "file:../watch/fullstacked-watch-0.10.23.tgz",
-    "@fullstacked/webapp": "file:../webapp/fullstacked-webapp-0.10.16.tgz",
+    "@fullstacked/watch": "file:../watch/fullstacked-watch-0.10.24.tgz",
+    "@fullstacked/webapp": "file:../webapp/fullstacked-webapp-0.10.18.tgz",
     "@tabler/core": "^1.0.0-beta17",
     "@types/react": "^18.0.28",
     "@types/ws": "^8.5.4",
