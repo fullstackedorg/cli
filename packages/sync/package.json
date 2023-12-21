@@ -1,13 +1,13 @@
 {
   "name": "@fullstacked/sync",
-  "version": "0.10.1",
+  "version": "0.10.2-alpha.1",
   "description": "Sync directories and files with a remote server",
   "main": "index.js",
   "author": "cplepage",
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "predocker": "cd ../../ && npm pack",
+    "predocker": "cd ../../ && npm run build && node prepare && npm pack",
     "docker": "npm pack && cd ../../ && docker build . -t fullstackedorg/storage:test -f packages/sync/Dockerfile"
   },
   "dependencies": {
@@ -16,7 +16,7 @@
     "pretty-bytes": "^6.1.1"
   },
   "exports": {
-    ".": "./index.js",
+    "./*": "./*.js",
     "./http2/*": "./http2/*.js"
   },
   "devDependencies": {

@@ -15,11 +15,11 @@ export class RsyncHTTP2Server {
         "/scan",
         "/push",
         "/pull",
-        "/bump"
+        "/bump",
+        "/packages"
     ];
 
     port: number = 8000;
-    baseDir: string = "";
     ssl: {
         cert: string | Buffer,
         key: string | Buffer,
@@ -54,7 +54,7 @@ export class RsyncHTTP2Server {
                 // calculate diffs and stream the result back to client
                 // then wait for next item.
                 if (receivedChecksumBytes === checksumSize) {
-                    const patches = diff(fs.readFileSync(path.resolve(this.baseDir, itemPath)), checksum);
+                    const patches = diff(fs.readFileSync(itemPath), checksum);
 
                     stream.write(numberToBufferOfLength(patches.byteLength, 4));
                     stream.write(new Uint8Array(patches));
@@ -113,12 +113,10 @@ export class RsyncHTTP2Server {
 
                         // simply stream the whole file
                         if (!itemExistsOnClient) {
-                            const localPath = path.resolve(this.baseDir, itemPath);
-
-                            const { size } = fs.statSync(localPath);
+                            const { size } = fs.statSync(itemPath);
                             stream.write(numberToBufferOfLength(size, 4));
 
-                            const readStream = fs.createReadStream(localPath);
+                            const readStream = fs.createReadStream(itemPath);
 
                             // for some unknown reasons, if we pipe directly to the stream
                             // the process manage to end the Http2Stream before finishing to read
@@ -240,11 +238,10 @@ export class RsyncHTTP2Server {
                         expectedSize = accumulator.subarray(0, 4).readUint32LE();
                         accumulator = accumulator.subarray(4);
 
-                        const localPath = path.resolve(this.baseDir, itemPath);
                         // directly write to file
                         if (!itemExists) {
-                            fs.mkdirSync(path.dirname(localPath), { recursive: true })
-                            writeStream = fs.createWriteStream(localPath);
+                            fs.mkdirSync(path.dirname(itemPath), { recursive: true })
+                            writeStream = fs.createWriteStream(itemPath);
                         }
                         // accumulate patches and then apply
                         else {
@@ -257,7 +254,7 @@ export class RsyncHTTP2Server {
                                     receivedPatchesBytes += chunk.byteLength;
 
                                     if (receivedPatchesBytes === expectedSize) {
-                                        fs.writeFileSync(localPath, Buffer.from(apply(fs.readFileSync(localPath), patches)));
+                                        fs.writeFileSync(itemPath, Buffer.from(apply(fs.readFileSync(itemPath), patches)));
                                         writeStream?.end();
                                     }
 
@@ -279,12 +276,10 @@ export class RsyncHTTP2Server {
                         const isDirectory = accumulator.subarray(0, 1).at(0) === 1;
                         accumulator = accumulator.subarray(1);
 
-                        const localPath = path.resolve(this.baseDir, itemPath);
-
                         // it's just a directory
                         // on to the next!
                         if (isDirectory) {
-                            fs.mkdirSync(localPath, { recursive: true });
+                            fs.mkdirSync(itemPath, { recursive: true });
 
                             itemPathLength = 0;
                             itemPath = "";
@@ -292,7 +287,7 @@ export class RsyncHTTP2Server {
                             return processAccumulator();
                         }
 
-                        itemExists = fs.existsSync(localPath);
+                        itemExists = fs.existsSync(itemPath);
 
                         // we will receive the whole file
                         if (!itemExists) {
@@ -300,7 +295,7 @@ export class RsyncHTTP2Server {
                         }
 
                         // start the rsync algorithm by sending the checksum
-                        prepareStream(localPath, stream, processAccumulator);
+                        prepareStream(itemPath, stream, processAccumulator);
                     }
 
                     // 2.
@@ -431,24 +426,40 @@ export class RsyncHTTP2Server {
         if (pathname === "/scan") {
             stream.respond(outHeaders);
             const itemPath = await readBody(stream);
-            const itemScan = scan(this.baseDir, itemPath, null);
+            const itemScan = scan(".", itemPath, null);
             stream.write(JSON.stringify(itemScan));
         }
         else if (pathname === "/version"){
             stream.respond(outHeaders);
-            const syncFile = path.resolve(this.baseDir, await readBody(stream), syncFileName);
-            const version = fs.existsSync(syncFile)
-                ? JSON.parse(fs.readFileSync(syncFile).toString()).version
-                : null;
+            const itemPath = await readBody(stream);
+            const version = getVersion(itemPath);
             stream.write(JSON.stringify({version}));
         }
         else if (pathname === "/bump"){
             stream.respond(outHeaders);
             const {version, itemPath} = JSON.parse(await readBody(stream));
-            const syncFile = path.resolve(this.baseDir, itemPath, syncFileName);
+            const syncFile = path.resolve(itemPath, syncFileName);
             const stringified = JSON.stringify({version});
             fs.writeFileSync(syncFile, stringified);
             stream.write(stringified);
+        }
+        else if(pathname === "/packages"){
+            stream.respond(outHeaders);
+            const itemScan = scan(".", ".", null);
+            const packages = itemScan
+                .filter(([itemPath, isDir]) => !isDir && itemPath.endsWith("package.json"))
+                .map(([itemPath]) => {
+                    // find the closest sync file for the version
+                    const itemPathComponents = itemPath.split("/").slice(0, -1);
+                    let version = null;
+                    while(itemPathComponents.length && !version){
+                        version = getVersion(itemPathComponents.join("/"));
+                        itemPathComponents.pop();
+                    }
+                    return [itemPath, version]
+                })
+                .filter(([_, version]) => Boolean(version));
+            stream.write(JSON.stringify(packages));
         }
         else if (pathname === "/pull") {
             stream.respond(outHeaders);
@@ -496,4 +507,11 @@ const maybeFsMethod = (pathname: string) => {
     const maybeFsMethodName = pathname.slice(1).split("?").shift();
 
     return fs.promises[maybeFsMethodName] as Function;
+}
+
+function getVersion(itemPath: string){
+    const syncFile = path.resolve(itemPath, syncFileName);
+    return fs.existsSync(syncFile)
+        ? JSON.parse(fs.readFileSync(syncFile).toString()).version
+        : null;
 }
