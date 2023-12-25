@@ -6,10 +6,12 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@fullstacked/cli": "^0.10.16",
+    "@fullstacked/cli": "file:../../fullstacked-cli-0.10.16.tgz",
+    "@types/ws": "^8.5.10",
     "fast-querystring": "^1.1.1",
     "mime": "^3.0.0",
-    "parse5": "^7.1.2"
+    "parse5": "^7.1.2",
+    "ws": "^8.15.1"
   },
   "peerDependencies": {
     "react": "*"

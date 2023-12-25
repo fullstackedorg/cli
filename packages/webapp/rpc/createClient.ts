@@ -1,3 +1,4 @@
+import { MessageWS } from "./MessageWS";
 import {MultiCall} from "./MutliCall";
 
 class Client<ApiDefinition> {
@@ -32,13 +33,59 @@ class Client<ApiDefinition> {
             }
         })
     }
-    origin;
+    origin: string;
     headers: {[key: string]: string} = {};
-    requestOptions: RequestInit = {}
+    requestOptions: RequestInit = {};
+    ws: Promise<WebSocket>;
+    wsReqs: Map<number, {resolve: Function, reject: Function}> = new Map();
+    getWS = async () => {
+        if(this.ws) 
+            return this.ws;
 
-    constructor(origin) {
+        let origin = this.origin;
+        if(typeof window !== "undefined" && !origin){
+            origin = window.location.origin + "/rpc";
+        }
+
+        if(!origin)
+            throw new Error("No origin defined");
+
+        const wsUrl = new URL(origin);
+
+        wsUrl.protocol = wsUrl.protocol === "https:"
+            ? "wss:"
+            : "ws:";
+
+        const onClose = () => {
+            this.ws = null;
+        }
+
+        const onMessage = (rawData: MessageEvent) => {
+            const message: MessageWS = JSON.parse(rawData.data);
+
+            const req = this.wsReqs.get(message.reqId);
+            req.resolve(message.body);
+            this.wsReqs.delete(message.reqId);
+        }
+
+        this.ws = new Promise(resolve => {
+            const ws = new WebSocket(wsUrl.toString());
+            ws.onopen = () => resolve(ws);
+
+            ws.onmessage = onMessage;
+
+            ws.onerror = onClose;
+            ws.onclose = onClose;
+        })
+
+        return this.ws;
+    };
+
+    constructor(origin: string) {
         this.origin = origin;
     }
+
+    call() { return this.recurseInProxy(wsCall.bind(this), null, false, false) as any as ApiDefinition }
 
     get(useCache = false, arrayBuffer = false){ return this.recurseInProxy(fetchCall.bind(this), "GET", useCache, arrayBuffer) as any as ApiDefinition }
     post(arrayBuffer = false){ return this.recurseInProxy(fetchCall.bind(this), "POST", false, arrayBuffer) as any as ApiDefinition }
@@ -179,6 +226,22 @@ async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
     return data;
 }
 
+async function wsCall(this: Client<any>, _, pathComponents, __, ...body) {
+    const ws = await this.getWS();
+    
+    const reqId = Math.floor(Math.random() * 1000000);
+    const message: MessageWS = {
+        reqId,
+        method: pathComponents,
+        body
+    }
+
+    return new Promise((resolve, reject) => {
+        this.wsReqs.set(reqId, {resolve, reject});
+        ws.send(JSON.stringify(message));
+    });
+}
+
 type OnlyOnePromise<T> = T extends PromiseLike<any>
     ? T
     : Promise<T>;
@@ -194,11 +257,15 @@ type NoAwait<T> = {
     [K in keyof T]: T[K] extends ((...args: any) => any) ? (...args: T[K] extends ((...args: infer P) => any) ? P : never[]) => Awaited<OnlyOnePromise<(T[K] extends ((...args: any) => any) ? ReturnType<T[K]> : any)>> : NoAwait<T[K]>;
 };
 
+
+type CommonProperties<T> = {
+    headers: Client<T>["headers"],
+    origin: Client<T>["origin"]
+}
+
 export default function createClient<ApiDefinition>(origin = "") {
-    return new Client<ApiDefinition>(origin) as {
+    return new Client<ApiDefinition>(origin) as CommonProperties<ApiDefinition> & {
         requestOptions: Client<ApiDefinition>["requestOptions"],
-        headers: Client<ApiDefinition>["headers"],
-        origin: Client<ApiDefinition>["origin"],
         get(useCache?: boolean, arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
         post(arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
         put(arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
@@ -207,5 +274,11 @@ export default function createClient<ApiDefinition>(origin = "") {
             add(arrayBuffer?: boolean): NoAwait<ApiDefinition>
             fetch(): Promise<any[]>;
         }
+    };
+}
+
+export function createClientWS<ApiDefinition>(origin = "") {
+    return new Client<ApiDefinition>(origin) as CommonProperties<ApiDefinition> & {
+        call(): AwaitAll<ApiDefinition>
     };
 }
