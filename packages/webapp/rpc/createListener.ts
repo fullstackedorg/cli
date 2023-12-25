@@ -289,7 +289,7 @@ async function onMessage(this: { ws: WebSocket, api }, rawData: RawData, isBinar
         body
     }
 
-    this.ws.send(JSON.stringify(response));
+    this.ws.send(JSON.stringify(response, JSONCircularRemover()));
 }
 
 export function createListenerWS(server: Server, api, wsPath = "/rpc", name?: string) {

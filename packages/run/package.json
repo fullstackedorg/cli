@@ -7,7 +7,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "@fullstacked/cli": "file:../../fullstacked-cli-0.10.16.tgz",
+    "@fullstacked/cli": "^0.10.16",
     "dockerode-compose": "^1.4.0"
   },
   "exports": {
