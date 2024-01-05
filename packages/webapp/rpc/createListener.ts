@@ -173,7 +173,7 @@ async function multiCall(req, res, api, callsPromise: Promise<MultiCall[]>) {
     })
     const promises = methods.map((method, index) => new Promise(async resolve => {
         const args = Object.values(calls[index].args).map(value => {
-            if (typeof value === "object" && value.type === "Buffer" && value.data)
+            if (typeof value === "object" && value?.type === "Buffer" && value?.data)
                 return Buffer.from(value.data);
 
             return value
@@ -225,7 +225,7 @@ export function createHandler(api: any) {
                 readBody(req).then(body => {
                     const args = Object.values(body).map(value => {
                         // NodeJS Buffer toJSON() looks like: { type: "Buffer", data: [1, 2, 3, 4] }
-                        if (typeof value === "object" && value.type === "Buffer" && value.data)
+                        if (typeof value === "object" && value?.type === "Buffer" && value?.data)
                             return Buffer.from(value.data);
 
                         return value

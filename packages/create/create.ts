@@ -22,8 +22,10 @@ export default function() {
 
     const packageJSONData = JSON.parse(fs.readFileSync(packageJSONFile).toString());
     packageJSONData.type = "module";
+    packageJSONData.main = "dist/server/index.mjs";
     packageJSONData.scripts = {
-        start: "npx fsc watch"
+        start: "fsc watch",
+        build: "fsc build"
     }
     fs.writeFileSync(packageJSONFile, JSON.stringify(packageJSONData, null, 2));
 

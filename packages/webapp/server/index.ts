@@ -77,15 +77,28 @@ export default class {
             this.pages["/"].addScript("/index.js");
 
         this.serverHTTP = http.createServer(async (req, res: ServerResponse & {currentListener: string}) => {
-            if(this.logger?.in) this.logger.in(req, res);
+            if(this.logger?.in) 
+                this.logger.in(req, res);
 
             const urlPrefixes = Object.keys(this.listeners);
-            let listenerKeys: string[] = urlPrefixes.filter(prefix => req.url.startsWith(prefix));
-            if(!listenerKeys.length)
-                listenerKeys = ["default"];
 
+            // get all prefix matching req.url and sort from most specific to less specific
+            let listenerKeys: string[] = urlPrefixes
+                .filter(prefix => req.url.startsWith(prefix))
+                .sort((prefixA, prefixB) => prefixA < prefixB 
+                    ? 1 
+                    : prefixB > prefixA 
+                        ? -1 
+                        : 0);
+
+            // always start with global
             if(this.listeners["global"])
                 listenerKeys.unshift("global");
+
+            // always end with default
+            if(this.listeners["default"])
+                listenerKeys.push("default");
+
 
             const originalUrl = req.url;
             for (const listenerKey of listenerKeys) {
@@ -111,14 +124,16 @@ export default class {
                 if(res.headersSent) break;
             }
 
-            if(this.logger?.out) this.logger.out(req, res);
+            if(this.logger?.out) 
+                this.logger.out(req, res);
         });
     }
 
     addListener(listener: Listener & {prefix?: "global" | "default" | string}, prepend = false){
         const urlPrefix = listener.prefix || "default";
 
-        if(!this.listeners[urlPrefix]) this.listeners[urlPrefix] = [];
+        if(!this.listeners[urlPrefix]) 
+            this.listeners[urlPrefix] = [];
 
         if(prepend)
             this.listeners[urlPrefix].unshift(listener);

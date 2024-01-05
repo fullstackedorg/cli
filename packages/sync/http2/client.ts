@@ -1,5 +1,5 @@
 import fs from "fs";
-import { ClientHttp2Session, ClientHttp2Stream, connect } from "http2";
+import { ClientHttp2Session, ClientHttp2Stream, Http2Session, ServerHttp2Session, connect } from "http2";
 import path from "path";
 import { apply } from "../rsync/src/apply";
 import { Writable } from "stream";
@@ -12,7 +12,8 @@ import { Snapshot, createSnapshot, getSnapshotDiffs, numberToBufferOfLength, sca
 type PushOptions = {
     progress?(info: ProgressInfo): void,
     force?: boolean,
-    filters?: string[]
+    filters?: string[],
+    exclude?: string[]
 }
 
 type PullOptions = {
@@ -22,7 +23,8 @@ type PullOptions = {
 }
 
 export class RsyncHTTP2Client {
-    endpoint: string;
+    origin: string;
+    basePath: string = "";
     baseDir: string = "";
     maximumConcurrentStreams: number = 5;
     headers: {
@@ -30,13 +32,19 @@ export class RsyncHTTP2Client {
     } = {};
 
     constructor(endpoint: string) {
-        this.endpoint = endpoint;
+        const url = new URL(endpoint);
+
+        this.origin = url.origin;
+        // no trailing slash!
+        this.basePath = url.pathname.endsWith("/")
+            ? url.pathname.slice(0, -1)
+            : url.pathname;
     }
 
-    getSavedSnapshotAndVersion(itemPath: string){
+    getSavedSnapshotAndVersion(itemPath: string) {
         const syncFile = path.resolve(this.baseDir, itemPath, syncFileName);
 
-        if(!fs.existsSync(syncFile)){
+        if (!fs.existsSync(syncFile)) {
             return { version: null };
         }
 
@@ -45,12 +53,12 @@ export class RsyncHTTP2Client {
 
     private saveSnapshotAndVersion(itemPath: string, snapshot: Snapshot, version: number) {
         const syncFile = path.resolve(this.baseDir, itemPath, syncFileName);
-        fs.writeFileSync(syncFile, JSON.stringify({...snapshot, version: version}))
+        fs.writeFileSync(syncFile, JSON.stringify({ ...snapshot, version: version }))
     }
 
-    private getVersionOnRemote(session: ClientHttp2Session, itemPath: string): Promise<number>{
+    private getVersionOnRemote(session: ClientHttp2Session, itemPath: string): Promise<number> {
         const stream = session.request({
-            ':path': '/version',
+            ':path': this.basePath + '/version',
             ':method': 'POST',
             ...this.headers
         });
@@ -69,7 +77,7 @@ export class RsyncHTTP2Client {
 
     private bumpVersionOnRemote(session: ClientHttp2Session, itemPath: string, version: number): Promise<number> {
         const stream = session.request({
-            ':path': '/bump',
+            ':path': this.basePath + '/bump',
             ':method': 'POST',
             ...this.headers
         });
@@ -89,9 +97,9 @@ export class RsyncHTTP2Client {
         })
     }
 
-    private scanItemOnRemote(session: ClientHttp2Session, itemPath: string): Promise<ReturnType<typeof scan>> {
+    private scanOnRemote(session: ClientHttp2Session, itemPath: string): Promise<ReturnType<typeof scan>> {
         const stream = session.request({
-            ':path': '/scan',
+            ':path': this.basePath + '/scan',
             ':method': 'POST',
             ...this.headers
         });
@@ -109,18 +117,18 @@ export class RsyncHTTP2Client {
     }
 
     async push(itemPath: string, options?: PushOptions): Promise<Status> {
-        const session = connect(this.endpoint);
+        const session = connect(this.origin);
         session.on('error', (err) => {
             throw err;
         });
 
-        const items = scan(this.baseDir, itemPath, options?.filters);
+        const items = scan(this.baseDir, itemPath, options?.filters, options?.exclude);
 
-        if(!items.length) return;
+        if (!items.length) return;
 
         const mainItemPathIsDirectory = items[0][1] && !options.force;
         let onFinish;
-        if(mainItemPathIsDirectory){
+        if (mainItemPathIsDirectory) {
             const fileItemsPaths = items
                 .filter(([_, isDir]) => !isDir)
                 .map(([itemPath]) => itemPath);
@@ -135,7 +143,7 @@ export class RsyncHTTP2Client {
                 missingInA,
                 missingInB
             } = getSnapshotDiffs(previousSnapshot, snapshot);
-            if(!diffs.length && !missingInA.length && !missingInB.length && remoteVersion !== null){
+            if (!diffs.length && !missingInA.length && !missingInB.length && remoteVersion !== null) {
                 session.close();
                 return {
                     status: "none",
@@ -143,7 +151,7 @@ export class RsyncHTTP2Client {
                 }
             }
 
-            if(remoteVersion !== null && remoteVersion !== version) {
+            if (remoteVersion !== null && remoteVersion !== version) {
                 session.close();
                 return {
                     status: "error",
@@ -161,11 +169,11 @@ export class RsyncHTTP2Client {
         // this map allows us to check if item exists on remote
         // and make sure there is no directory <-> file confusion
         const remoteItems = new Map<string, boolean>();
-        (await this.scanItemOnRemote(session, itemPath)).forEach(([itemPath, isDirectory]) => {
+        (await this.scanOnRemote(session, itemPath)).forEach(([itemPath, isDirectory]) => {
             remoteItems.set(itemPath, isDirectory);
         });
 
-        const itemsCount = items.length; 
+        const itemsCount = items.length;
         const progressInfo: ProgressInfo = {
             items: {
                 completed: 0,
@@ -187,14 +195,14 @@ export class RsyncHTTP2Client {
             // init stream
             if (!stream) {
                 stream = session.request({
-                    ':path': '/push',
+                    ':path': this.basePath + '/push',
                     ':method': 'POST',
                     ...this.headers
                 });
 
                 stream.on("end", () => {
                     delete progressInfo.streams[streamIndex];
-                    if(options?.progress)
+                    if (options?.progress)
                         options.progress(progressInfo);
 
                     resolve()
@@ -212,7 +220,7 @@ export class RsyncHTTP2Client {
                     transfered,
                     total,
                 }
-                if(options?.progress)
+                if (options?.progress)
                     options.progress(progressInfo);
             }
 
@@ -292,7 +300,7 @@ export class RsyncHTTP2Client {
                             stream.write(chunk);
 
                             sentBytes += chunk.byteLength;
-                            
+
                             updateStreamProgress(sentBytes, size);
 
                             next();
@@ -310,7 +318,7 @@ export class RsyncHTTP2Client {
         const streamsCount = Math.min(items.length, this.maximumConcurrentStreams);
         await Promise.all(new Array(streamsCount).fill(null).map(streamPush));
 
-        if(onFinish)
+        if (onFinish)
             await onFinish();
 
         session.close();
@@ -322,21 +330,21 @@ export class RsyncHTTP2Client {
     }
 
     async pull(itemPath: string, options?: PullOptions): Promise<Status> {
-        const session = connect(this.endpoint);
+        const session = connect(this.origin);
         session.on('error', (err) => {
             throw err;
         });
 
-        let items = await this.scanItemOnRemote(session, itemPath);
+        let items = await this.scanOnRemote(session, itemPath);
 
-        if(items.length === 0){
+        if (items.length === 0) {
             return {
                 status: "error",
                 message: `[${itemPath}] does not exists or is empty on remote server.`
             }
         }
 
-        if(options?.exclude){
+        if (options?.exclude) {
             items = items.filter(([itemPath]) => {
                 // if we find an exclude item that starts with the itemPath
                 // then we should exclude. This way we can exclude a directory
@@ -349,12 +357,12 @@ export class RsyncHTTP2Client {
 
         const mainItemPathIsDirectory = items[0][1] && !options.force;
         let onFinish;
-        if(mainItemPathIsDirectory){
+        if (mainItemPathIsDirectory) {
             const remoteVersion = await this.getVersionOnRemote(session, itemPath);
 
             const { version, ...previousSnapshot } = this.getSavedSnapshotAndVersion(itemPath);
 
-            if(remoteVersion !== null && version !== null && remoteVersion === version){
+            if (remoteVersion !== null && version !== null && remoteVersion === version) {
                 return {
                     status: "none",
                     message: "Same version as remote. No pull needed."
@@ -374,11 +382,11 @@ export class RsyncHTTP2Client {
                     missingInB
                 } = getSnapshotDiffs(previousSnapshot, snapshot);
 
-                if(diffs.length){
+                if (diffs.length) {
                     session.close();
                     return {
                         status: "conflicts",
-                        items: diffs 
+                        items: diffs
                     };
                 }
             }
@@ -389,7 +397,7 @@ export class RsyncHTTP2Client {
             }
         }
 
-        const itemsCount = items.length; 
+        const itemsCount = items.length;
         const progressInfo: ProgressInfo = {
             items: {
                 completed: 0,
@@ -406,7 +414,7 @@ export class RsyncHTTP2Client {
 
                 if (stream) {
                     delete progressInfo.streams[streamIndex];
-                    if(options?.progress)
+                    if (options?.progress)
                         options.progress(progressInfo);
 
                     stream.close();
@@ -426,7 +434,7 @@ export class RsyncHTTP2Client {
                     transfered,
                     total,
                 }
-                if(options?.progress)
+                if (options?.progress)
                     options.progress(progressInfo);
             }
             updateStreamProgress(0, 0);
@@ -437,11 +445,17 @@ export class RsyncHTTP2Client {
                 fs.mkdirSync(path.resolve(this.baseDir, itemPath), { recursive: true })
                 return streamPull(stream, streamIndex);
             }
+            // make sure dir exists
+            else {
+                const dir = path.dirname(path.resolve(this.baseDir, itemPath));
+                if (!fs.existsSync(dir))
+                    fs.mkdirSync(dir, { recursive: true });
+            }
 
             // init stream
             if (!stream) {
                 stream = session.request({
-                    ':path': '/pull',
+                    ':path': this.basePath + '/pull',
                     ':method': 'POST',
                     ...this.headers
                 });
@@ -514,9 +528,9 @@ export class RsyncHTTP2Client {
 
                         if (receivedData === size) {
                             stream.off("data", receivePatches);
-                            try{
+                            try {
                                 fs.writeFileSync(localPath, Buffer.from(apply(fs.readFileSync(localPath), patches.buffer)))
-                            }catch(e){ 
+                            } catch (e) {
                                 console.log(`Failed to write to [${localPath}]`)
                             }
                             resolve();
@@ -537,9 +551,173 @@ export class RsyncHTTP2Client {
         const streamsCount = Math.min(items.length, this.maximumConcurrentStreams);
         await Promise.all(new Array(streamsCount).fill(null).map(streamPull));
 
-        if(onFinish)
+        if (onFinish)
             await onFinish();
 
+        session.close();
+
+        return {
+            status: "success",
+            message: "Pull done."
+        }
+    }
+
+    private async scanItemOnRemote(session: ClientHttp2Session, itemPath: string) {
+        const stream = session.request({
+            ':path': this.basePath + '/scan/' + encodeURI(itemPath),
+            ':method': 'POST',
+            ...this.headers
+        });
+        stream.end();
+
+        stream.setEncoding('utf8')
+        return new Promise<[string, number][]>(resolve => {
+            let data = ''
+            stream.on('data', (chunk) => { data += chunk })
+            stream.on('end', () => {
+                resolve(JSON.parse(data));
+            });
+        })
+    }
+
+    async pullItem(itemPath: string, progress?: PullOptions["progress"]) : Promise<Status> {
+        const session = connect(this.origin);
+        session.on('error', (err) => {
+            throw err;
+        });
+
+        const items = await this.scanItemOnRemote(session, itemPath);
+
+        if (items.length === 0) {
+            return {
+                status: "error",
+                message: `[${itemPath}] does not exists or is empty on remote server.`
+            }
+        }
+        else if (items.length !== 1 || items.at(0)[1]) {
+            return {
+                status: "error",
+                message: `[${itemPath}] is not a single file`
+            }
+        }
+
+        const stream = session.request({
+            ':path': this.basePath + '/pull/' + encodeURI(itemPath),
+            ':method': 'POST',
+            ...this.headers
+        });
+
+        const localPath = path.resolve(this.baseDir, itemPath);
+        const dir = path.dirname(localPath);
+        if (fs.existsSync(dir))
+            fs.mkdirSync(dir, { recursive: true });
+
+        const exists = fs.existsSync(localPath);
+
+        const progressInfo: ProgressInfo = {
+            items: {
+                completed: 0,
+                total: 1
+            },
+            streams: {
+                [0]: {
+                    itemPath,
+                    total: 0,
+                    transfered: 0
+                }
+            }
+        }
+        const updateStreamProgress = (transfered, total) => {
+            progressInfo.streams[0] = {
+                itemPath,
+                transfered,
+                total
+            }
+            if(progress)
+                progress(progressInfo);
+        }
+        updateStreamProgress(0, 0);
+
+        const pullPromise = new Promise<void>(resolve => {
+            if (!exists) {
+                const writeStream = fs.createWriteStream(localPath);
+                let size = 0;
+                let written = 0;
+    
+                const writeToFile = (chunk: Buffer) => {
+                    if (!size) {
+                        size = chunk.subarray(0, 4).readUint32LE();
+                        chunk = chunk.subarray(4);
+                    }
+    
+                    writeStream.write(chunk);
+                    written += chunk.byteLength;
+    
+                    updateStreamProgress(written, size);
+    
+                    if (written === size) {
+                        const fileHandleIsClosed = () => {
+                            stream.off("data", writeToFile);
+                            resolve();
+                        }
+                        writeStream.end(fileHandleIsClosed);
+                    }
+                }
+    
+                stream.on("data", writeToFile);
+            }
+    
+            stream.write(new Uint8Array([exists ? 1 : 0]));
+    
+            // run the rsync algorithm
+            if (exists) {
+                let accumulator = Buffer.from("");
+                let size = 0;
+                let patches, receivedData = 0;
+    
+                const receivePatches = (chunk: Buffer) => {
+    
+                    if (!size) {
+                        // accumulate until we have received at least 4-bytes 
+                        // to determine, the length of the patches buffer
+                        accumulator = Buffer.concat([accumulator, chunk]);
+                        if (accumulator.byteLength < 4)
+                            return;
+    
+                        size = accumulator.subarray(0, 4).readUint32LE();
+                        patches = new Uint8Array(size);
+                        chunk = accumulator.subarray(4);
+                    }
+    
+                    patches.set(chunk, receivedData);
+                    receivedData += chunk.byteLength;
+    
+                    updateStreamProgress(receivedData, size);
+    
+                    if (receivedData === size) {
+                        stream.off("data", receivePatches);
+                        try {
+                            fs.writeFileSync(localPath, Buffer.from(apply(fs.readFileSync(localPath), patches.buffer)))
+                        } catch (e) {
+                            console.log(`Failed to write to [${localPath}]`)
+                        }
+                        resolve();
+                    }
+                }
+    
+                stream.on("data", receivePatches);
+    
+                prepareStream(localPath, stream, () => { })
+            }
+        });
+
+        await pullPromise;
+
+        progressInfo.items.completed = 1;
+        updateStreamProgress(progressInfo.streams[0].transfered, progressInfo.streams[0].total);
+
+        stream.close();
+        stream.end();
         session.close();
 
         return {

@@ -25,6 +25,100 @@ export class RsyncHTTP2Server {
         key: string | Buffer,
     };
 
+    pullItem(stream: ServerHttp2Stream, itemPath: string) {
+        return new Promise(resolve => {
+            let itemExistsOnClient: boolean;
+
+            let checksum: Uint8Array | undefined;
+            let checksumSize: number, receivedChecksumBytes: number = 0;
+            const receiveData = (chunk: Buffer): Buffer => {
+                if (!checksum) return chunk;
+
+                checksum.set(chunk, receivedChecksumBytes);
+                receivedChecksumBytes += chunk.byteLength;
+
+                // we now have everything to diff the transfering file
+                // calculate diffs and stream the result back to client
+                // then wait for next item.
+                if (receivedChecksumBytes === checksumSize) {
+                    const patches = diff(fs.readFileSync(itemPath), checksum);
+
+                    stream.write(numberToBufferOfLength(patches.byteLength, 4));
+                    stream.write(new Uint8Array(patches));
+                }
+
+                return Buffer.from("");
+            }
+
+            let accumulator = Buffer.from("");
+            stream.on("data", (chunk: Buffer) => {
+                // we might be receiving a lot of data
+                // for a big checksum for file
+                chunk = receiveData(chunk);
+                // we're not done
+                if (chunk.byteLength === 0)
+                    return;
+
+                // this is computationnaly expensive since it could copy a lot of data
+                // it should only happen with small amounts of data
+                accumulator = Buffer.concat([accumulator, chunk]);
+
+                const processAccumulator = () => {
+                    if (accumulator.byteLength === 0)
+                        return;
+
+                    // 2.
+                    // the rsync process began
+                    // get the size of the checksum we're streaming
+                    if (itemExistsOnClient) {
+                        if (accumulator.byteLength < HEADER_SIZE) {
+                            return;
+                        }
+
+                        const blockCount = accumulator.subarray(BLOCK_SIZE_BYTES, HEADER_SIZE).readUint32LE();
+                        checksumSize = blockCount * CHUNK_SIZE + HEADER_SIZE;
+
+                        checksum = new Uint8Array(checksumSize);
+
+                        accumulator = receiveData(accumulator);
+                        processAccumulator();
+                    }
+
+                    // 1.
+                    // the one byte that tells if we are about the start the rsync process
+                    // or the client is just waiting for the data transfer
+                    else {
+                        itemExistsOnClient = accumulator.subarray(0, 1).at(0) === 1;
+                        accumulator = accumulator.subarray(1);
+
+                        // simply stream the whole file
+                        if (!itemExistsOnClient) {
+                            const { size } = fs.statSync(itemPath);
+                            stream.write(numberToBufferOfLength(size, 4));
+
+                            const readStream = fs.createReadStream(itemPath);
+
+                            // for some unknown reasons, if we pipe directly to the stream
+                            // the process manage to end the Http2Stream before finishing to read
+                            const writeStream = new Writable({
+                                write(chunk: Buffer, _: BufferEncoding, next) {
+                                    stream.write(chunk);
+                                    next();
+                                }
+                            });
+                            readStream.pipe(writeStream);
+                        }
+                    }
+                }
+
+                processAccumulator();
+            });
+
+
+            stream.on("close", resolve);
+        })
+    }
+
     pull(stream: ServerHttp2Stream) {
         return new Promise(resolve => {
             let itemPathLength: number;
@@ -337,11 +431,8 @@ export class RsyncHTTP2Server {
     }
 
     async requestHandler(req: Http2ServerRequest, res: Http2ServerResponse){
-        console.log("handler", req.url);
-        console.log(req.headers);
-
         // will be handled by the stream handler
-        if( RsyncHTTP2Server.streamHandledPath.includes(req.url) )
+        if( RsyncHTTP2Server.streamHandledPath.find(streamPath => req.url.startsWith(streamPath)) )
             return;
 
         if(req.url === "/hello"){
@@ -353,8 +444,6 @@ export class RsyncHTTP2Server {
         const fsMethod = maybeFsMethod(req.url);
 
         if (fsMethod){
-            console.log("fs method");
-
             if(req.method !== "POST"){
                 res.writeHead(405);
                 res.write(`Only POST method allowed. Received [${req.method}]`)
@@ -367,10 +456,9 @@ export class RsyncHTTP2Server {
             try{
                 args = Object.values<any>(JSON.parse(body));
             } catch (e) {
-                console.log("icicic", body, req.url);
+                console.log(body, req.url);
                 throw e;
             }
-            console.log("Received Body", args);
 
             let result;
             // override readdir withFileTypes to directly return isDirectory
@@ -411,11 +499,9 @@ export class RsyncHTTP2Server {
         const pathname = headers[":path"].toString();
 
         // will be handled by request handler
-        if( !RsyncHTTP2Server.streamHandledPath.includes(pathname) )
+        if( !RsyncHTTP2Server.streamHandledPath.find(streamPath => pathname.startsWith(streamPath)) )
             return;
 
-
-        console.log("stream", pathname, stream.headersSent)
         // request handler took care of it
         if(stream.headersSent || maybeFsMethod(pathname)) return;
 
@@ -423,15 +509,19 @@ export class RsyncHTTP2Server {
             ':status': 200
         }
 
-        if (pathname === "/scan") {
+        if (pathname.startsWith("/scan")) {
             stream.respond(outHeaders);
-            const itemPath = await readBody(stream);
-            const itemScan = scan(".", itemPath, null);
+            const itemPath = pathname.length > "/scan".length
+                ? decodeURI(pathname.slice("/scan/".length))
+                : await readBody(stream);
+            const itemScan = scan(".", itemPath, null, null);
             stream.write(JSON.stringify(itemScan));
         }
-        else if (pathname === "/version"){
+        else if (pathname.startsWith("/version")){
             stream.respond(outHeaders);
-            const itemPath = await readBody(stream);
+            const itemPath = pathname.length > "/version".length
+                ? decodeURI(pathname.slice("/version/".length))
+                : await readBody(stream);
             const version = getVersion(itemPath);
             stream.write(JSON.stringify({version}));
         }
@@ -445,25 +535,19 @@ export class RsyncHTTP2Server {
         }
         else if(pathname === "/packages"){
             stream.respond(outHeaders);
-            const itemScan = scan(".", ".", null);
+            const itemScan = scan(".", ".", null, null);
             const packages = itemScan
-                .filter(([itemPath, isDir]) => !isDir && itemPath.endsWith("package.json"))
-                .map(([itemPath]) => {
-                    // find the closest sync file for the version
-                    const itemPathComponents = itemPath.split("/").slice(0, -1);
-                    let version = null;
-                    while(itemPathComponents.length && !version){
-                        version = getVersion(itemPathComponents.join("/"));
-                        itemPathComponents.pop();
-                    }
-                    return [itemPath, version]
-                })
+                .filter(([itemPath, isDir]) => !isDir && itemPath.endsWith("package.json") && !itemPath.includes("node_modules"))
+                .map(([itemPath]) => [itemPath, getVersion(itemPath)])
                 .filter(([_, version]) => Boolean(version));
             stream.write(JSON.stringify(packages));
         }
-        else if (pathname === "/pull") {
+        else if (pathname.startsWith("/pull")) {
             stream.respond(outHeaders);
-            await this.pull(stream);
+            if(pathname.length > "/pull".length)
+                await this.pullItem(stream, decodeURI(pathname.slice("/pull/".length)));
+            else
+                await this.pull(stream);
         }
         else if (pathname === "/push") {
             stream.respond(outHeaders);
@@ -491,7 +575,7 @@ export class RsyncHTTP2Server {
 
         return {
             status: "success",
-            message: `Sync Server listenning on port ${this.port}`
+            message: `Sync Server listening on port ${this.port}`
         }
     }
 }
@@ -510,8 +594,15 @@ const maybeFsMethod = (pathname: string) => {
 }
 
 function getVersion(itemPath: string){
-    const syncFile = path.resolve(itemPath, syncFileName);
-    return fs.existsSync(syncFile)
-        ? JSON.parse(fs.readFileSync(syncFile).toString()).version
-        : null;
+    // find the closest sync file for the version
+    const itemPathComponents = itemPath.split("/");
+    let version = null;
+    while(itemPathComponents.length && !version){
+        const syncFile = path.resolve(itemPathComponents.join("/"), syncFileName);
+        version = fs.existsSync(syncFile)
+            ? JSON.parse(fs.readFileSync(syncFile).toString()).version
+            : null;
+        itemPathComponents.pop();
+    }
+    return version;
 }

@@ -9,6 +9,11 @@ import Info from "@fullstacked/cli/info";
 import ts from "typescript";
 import findDecorators from "@fullstacked/cli/utils/findDecorators";
 
+// remove those since running FullStacked uses them 
+// and could interfere when building another web app inside FullStacked
+delete process.env.CLIENT_DIR;
+delete process.env.PORT;
+
 // Polyfill for stackblitz
 if(!global.structuredClone) {
     global.structuredClone = function (obj) {

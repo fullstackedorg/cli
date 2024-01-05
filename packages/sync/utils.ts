@@ -3,8 +3,16 @@ import path from "path";
 import ignore, {Ignore} from "ignore";
 import { syncFileName } from "./constants";
 
-export const scan = (baseDir: string, itemPath: string, filters: string[], items: [string, boolean][] = [], ignoreAccumulator?: Ignore) => {
-    if(itemPath.endsWith(syncFileName)) return;
+export const scan = (
+    baseDir: string, 
+    itemPath: string, 
+    filters: string[], 
+    exclude: string[],
+    items: [string, boolean][] = [], 
+    ignoreAccumulator?: Ignore
+) => {
+    if(itemPath.endsWith(syncFileName) || exclude?.find(excludeFileName => itemPath.endsWith(excludeFileName))) 
+        return items;
 
     const localPath = path.resolve(baseDir, itemPath);
     if (!fs.existsSync(localPath))
@@ -39,7 +47,7 @@ export const scan = (baseDir: string, itemPath: string, filters: string[], items
                 return;
 
             // recurse
-            scan(baseDir, subItemPath, filters, items, ignoreAccumulator);
+            scan(baseDir, subItemPath, filters, exclude, items, ignoreAccumulator);
         });
     }
 

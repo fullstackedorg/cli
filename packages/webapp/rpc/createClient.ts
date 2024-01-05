@@ -33,6 +33,7 @@ class Client<ApiDefinition> {
             }
         })
     }
+    fetch: typeof fetch;
     origin: string;
     headers: {[key: string]: string} = {};
     requestOptions: RequestInit = {};
@@ -109,7 +110,7 @@ class Client<ApiDefinition> {
     }
 }
 
-async function multiFetchCall(calls: MultiCall[]){
+async function multiFetchCall(this: Client<any>, calls: MultiCall[]){
     let origin = this.origin;
 
     // default origin in browser
@@ -138,7 +139,7 @@ async function multiFetchCall(calls: MultiCall[]){
 
     headers["Content-Type"] = "application/json";
 
-    const response = await fetch(url.toString(), requestInit);
+    const response = await (this.fetch || fetch)(url.toString(), requestInit);
     if(response.status >= 400){
         let errorData = await response.text();
         try {
@@ -151,12 +152,12 @@ async function multiFetchCall(calls: MultiCall[]){
     const json = await response.json();
     return json.map((data, index) => {
         if(calls[index].arrayBuffer && data.type === "Buffer")
-            return (new Uint8Array(data.data)).buffer
+            return (new Uint8Array(data.data)).buffer;
         return data;
     });
 }
 
-async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
+async function fetchCall(this: Client<any>, method, pathComponents, arrayBuffer, ...args) {
     let origin = this.origin;
 
     // default origin in browser
@@ -207,11 +208,11 @@ async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
     });
     requestInit.headers = headers;
 
-    const response = await fetch(url.toString(), requestInit);
+    const response = await (this.fetch || fetch)(url.toString(), requestInit);
 
     const data = arrayBuffer
         ? await response.arrayBuffer()
-        : response.headers.get("Content-Type") === "application/json"
+        : response.headers?.get("Content-Type")?.startsWith("application/json")
             ? await response.json()
             : await response.text();
 
@@ -220,7 +221,7 @@ async function fetchCall(method, pathComponents, arrayBuffer, ...args) {
             ? JSON.stringify(data)
             : data.toString();
 
-        throw new Error(`[${url.toString()}]` + errorData);
+        throw new Error(errorData);
     }
 
     return data;
@@ -266,6 +267,7 @@ type CommonProperties<T> = {
 export default function createClient<ApiDefinition>(origin = "") {
     return new Client<ApiDefinition>(origin) as CommonProperties<ApiDefinition> & {
         requestOptions: Client<ApiDefinition>["requestOptions"],
+        fetch: typeof fetch,
         get(useCache?: boolean, arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
         post(arrayBuffer?: boolean): AwaitAll<ApiDefinition>,
         put(arrayBuffer?: boolean): AwaitAll<ApiDefinition>,

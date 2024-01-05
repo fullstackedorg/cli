@@ -18,9 +18,14 @@ export default class Sync extends CommandInterface {
         directory: {
             short: "d",
             type: "string",
-            description: "Defins a directory where to sync",
+            description: "Define a directory where to sync",
             defaultDescription: "current directory",
             default: process.cwd()
+        },
+        file: {
+            short: "f",
+            type: "string",
+            description: "Define a file to sync"
         },
         filters: {
             type: "string[]",
@@ -105,11 +110,14 @@ export default class Sync extends CommandInterface {
         client.maximumConcurrentStreams = this.config.maxStream;
         client.baseDir = this.config.directory;
         if(this.config.pull){
-            return client.pull(".", {
-                progress,
-                exclude: this.config.exclude?.map(item => item.trim()),
-                force: this.config.force
-            })
+            if(this.config.file)
+                return client.pullItem(this.config.file, progress);
+            else
+                return client.pull(".", {
+                    progress,
+                    exclude: this.config.exclude?.map(item => item.trim()),
+                    force: this.config.force
+                })
         } else {
             return client.push(".", {
                 progress,
@@ -120,6 +128,7 @@ export default class Sync extends CommandInterface {
     }
 
     async runCLI() {
+        const start = Date.now();
         let logging: string[];
 
         const status = await this.run((progress) => {
@@ -172,6 +181,9 @@ export default class Sync extends CommandInterface {
             console.log(`Can't pull. Changes in [${status.items.join(" ")}]`)
         else
             console.log(status.message);
+
+        if(!this.config.server)
+            console.log(`Took: ${((Date.now() - start) / 1000).toFixed(2)}s`)
     }
     
 }
